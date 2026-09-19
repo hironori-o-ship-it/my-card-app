@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>らくらく名刺管理</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+    body {
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col antialiased">
+
+  <!-- ヘッダー -->
+  <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shrink-0">
+          <i class="fa-solid fa-address-card text-lg"></i>
+        </div>
+        <div class="truncate">
+          <div class="flex items-center gap-1.5">
+            <h1 class="text-base sm:text-lg font-bold truncate">らくらく名刺管理</h1>
+            <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0">有料Tier非学習</span>
+          </div>
+          <div class="text-[11px] text-slate-400 truncate hidden sm:block">小田島組 営業専用スマート名刺台帳</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <!-- 📗 スプレッドシートを開くボタン -->
+        <a id="header-sheet-link" href="#" target="_blank" rel="noopener noreferrer" title="データシートを開く" class="inline-flex items-center gap-1.5 bg-emerald-700/80 hover:bg-emerald-600 text-white text-xs px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-500/40 transition font-medium shadow-xs">
+          <i class="fa-solid fa-file-excel text-emerald-200"></i>
+          <span class="hidden sm:inline">シートを開く</span>
+          <span class="sm:hidden">シート</span>
+        </a>
+
+        <!-- 同期ボタン -->
+        <button type="button" onclick="loadCardsFromSpreadsheet()" title="最新データを再取得" class="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-700 transition">
+          <i class="fa-solid fa-rotate text-slate-400"></i>
+          <span class="hidden sm:inline">同期</span>
+        </button>
+
+        <!-- 撮影・UPボタン（単発） -->
+        <button type="button" onclick="document.getElementById('camera-single-input').click()" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-xl shadow font-semibold transition active:scale-95">
+          <i class="fa-solid fa-camera"></i>
+          <span>撮影・UP</span>
+        </button>
+        <input type="file" id="camera-single-input" accept="image/*" class="hidden" onchange="handleImageSelected(event)">
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 space-y-4">
+
+    <!-- 上部タブメニュー -->
+    <div class="flex items-center justify-between gap-2 border-b border-slate-200 pb-2 overflow-x-auto custom-scrollbar">
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button type="button" id="tab-btn-active" onclick="switchMainTab('active')" class="tab-btn active px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 text-white shadow-xs transition">
+          <i class="fa-solid fa-address-book mr-1"></i>現役名刺 <span id="count-badge-active" class="bg-indigo-800 px-1.5 py-0.5 rounded-full text-[10px] ml-0.5">0</span>
+        </button>
+        <button type="button" id="tab-btn-moved" onclick="switchMainTab('moved')" class="tab-btn px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 transition">
+          <i class="fa-solid fa-arrow-right-arrow-left mr-1 text-amber-500"></i>異動・転職 保留 <span id="count-badge-moved" class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded-full text-[10px] ml-0.5">0</span>
+        </button>
+        <button type="button" id="tab-btn-trash" onclick="switchMainTab('trash')" class="tab-btn px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 transition">
+          <i class="fa-solid fa-trash mr-1 text-rose-500"></i>ゴミ箱 <span id="count-badge-trash" class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded-full text-[10px] ml-0.5">0</span>
+        </button>
+        <button type="button" id="tab-btn-backup" onclick="switchMainTab('backup')" class="tab-btn px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 transition">
+          <i class="fa-solid fa-shield-halved mr-1 text-emerald-600"></i>バックアップ / 復元
+        </button>
+        <button type="button" id="tab-btn-guide" onclick="switchMainTab('guide')" class="tab-btn px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 transition">
+          <i class="fa-solid fa-circle-question mr-1 text-sky-600"></i>使い方ガイド
+        </button>
+      </div>
+
+      <!-- 全体よみ一括表示トグル -->
+      <button type="button" id="all-yomi-toggle-btn" onclick="toggleAllYomi()" class="text-xs px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium rounded-xl shrink-0 inline-flex items-center gap-1 transition shadow-2xs">
+        <i class="fa-solid fa-font text-indigo-500 text-[11px]"></i>
+        <span id="all-yomi-label">よみ非表示中</span>
+      </button>
+    </div>
+
+    <!-- 現役名刺タブ (#active-tab) -->
+    <div id="active-tab" class="tab-content space-y-3">
+      
+      <!-- 検索・絞り込みツールバー -->
+      <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs space-y-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- 検索入力 -->
+          <div class="relative flex-1 min-w-[200px]">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input type="text" id="search-input" oninput="applyFilters()" placeholder="氏名、会社、役職、商談メモ、住所を検索..." class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+
+          <!-- グループ絞り込み -->
+          <select id="group-filter" onchange="applyFilters()" class="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="ALL">すべてのグループ</option>
+            <option value="主要取引先">主要取引先</option>
+            <option value="見込み客">見込み客</option>
+            <option value="協力会社">協力会社</option>
+            <option value="その他">その他</option>
+          </select>
+
+          <!-- 一括操作エリア（選択時のみ活性化） -->
+          <div id="bulk-action-bar" class="hidden items-center gap-1.5 ml-auto">
+            <span id="bulk-selected-count" class="text-xs font-bold text-indigo-600">0件選択</span>
+            <button type="button" onclick="bulkMoveStatus('異動・転職 保留')" class="text-xs bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-semibold px-2 py-1 rounded-lg transition">
+              保留へ移動
+            </button>
+            <button type="button" onclick="bulkMoveStatus('ゴミ箱')" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 font-semibold px-2 py-1 rounded-lg transition">
+              ゴミ箱へ
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PC用テーブルビュー -->
+      <div class="hidden md:block bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="bg-slate-50/80 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+              <tr>
+                <th class="py-2.5 pl-3 pr-2 w-8 text-center">
+                  <input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll(this.checked)" class="rounded text-indigo-600 focus:ring-0">
+                </th>
+                <th class="py-2.5 px-2 w-28">グループ</th>
+                <th class="py-2.5 px-3 min-w-[200px]">氏名 / 顔写真 / よみ / 役職</th>
+                <th class="py-2.5 px-3 min-w-[220px]">会社名 / HP / よみ / 部署</th>
+                <th class="py-2.5 px-3 min-w-[180px]">所在地 (MAP)</th>
+                <th class="py-2.5 px-3 min-w-[160px]">連絡先 (TEL / Mobile)</th>
+                <th class="py-2.5 px-3 min-w-[180px]">メールアドレス</th>
+                <th class="py-2.5 px-3 text-center w-28">操作</th>
+              </tr>
+            </thead>
+            <tbody id="cards-table-body" class="divide-y divide-slate-100">
+              <!-- JSで動的レンダリング -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- スマホ用カードビュー -->
+      <div id="cards-mobile-list" class="md:hidden space-y-3">
+        <!-- JSで動的レンダリング -->
+      </div>
+
+      <!-- 0件表示プレースホルダー -->
+      <div id="empty-state" class="hidden bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-2">
+        <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center text-xl">
+          <i class="fa-regular fa-folder-open"></i>
+        </div>
+        <div class="text-sm font-bold text-slate-700">該当する名刺がありません</div>
+        <div class="text-xs text-slate-500">条件を変更するか、右上の「撮影・UP」から新しい名刺を取り込んでください。</div>
+      </div>
+    </div>
+
+    <!-- 異動・転職 保留タブ (#moved-tab) -->
+    <div id="moved-tab" class="tab-content hidden space-y-3">
+      <div class="bg-amber-50/80 border border-amber-200 p-3 rounded-2xl flex items-center justify-between text-xs text-amber-900">
+        <div>
+          <span class="font-bold"><i class="fa-solid fa-arrow-right-arrow-left mr-1"></i>異動・転職 保留リスト</span>
+          <p class="text-[11px] text-amber-700 mt-0.5">退職や異動等で一時保留にした名刺です。「現役復帰」を押すと即座に戻せます。</p>
+        </div>
+      </div>
+      <div id="moved-cards-container" class="space-y-2">
+        <!-- JSで動的レンダリング -->
+      </div>
+    </div>
+
+    <!-- ゴミ箱タブ (#trash-tab) -->
+    <div id="trash-tab" class="tab-content hidden space-y-3">
+      <div class="bg-rose-50/80 border border-rose-200 p-3 rounded-2xl flex items-center justify-between text-xs text-rose-900">
+        <div>
+          <span class="font-bold"><i class="fa-solid fa-trash mr-1"></i>ゴミ箱</span>
+          <p class="text-[11px] text-rose-700 mt-0.5">削除された名刺です。誤って削除した場合も「現役に復元」を押せば元通り戻ります。</p>
+        </div>
+      </div>
+      <div id="trash-cards-container" class="space-y-2">
+        <!-- JSで動的レンダリング -->
+      </div>
+    </div>
+
+    <!-- バックアップ / 復元タブ (#backup-tab) -->
+    <div id="backup-tab" class="tab-content hidden space-y-4">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+        <h3 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+          <i class="fa-solid fa-shield-halved text-emerald-600"></i>
+          <span>データの保護・バックアップ</span>
+        </h3>
+        <p class="text-xs text-slate-600 leading-relaxed">
+          名刺の原本画像および名刺データはデータベースに常時二重保存されています。
+        </p>
+        <div class="flex flex-wrap gap-2 pt-2">
+          <button type="button" onclick="exportCardsToCsv()" class="bg-slate-800 hover:bg-slate-700 text-white text-xs px-3.5 py-2 rounded-xl font-medium inline-flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-file-csv text-emerald-400"></i>
+            <span>全名刺CSVエクスポート</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 使い方ガイドタブ (#guide-tab) -->
+    <div id="guide-tab" class="tab-content hidden space-y-4">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4 text-xs leading-relaxed text-slate-700">
+        <h3 class="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">らくらく名刺管理 活用ガイド</h3>
+        
+        <div class="space-y-1.5">
+          <div class="font-bold text-slate-900 text-xs">🌐 会社公式HP ＆ 🔍 会社名Google検索</div>
+          <p class="text-slate-600">名刺にURLがある場合は青い「HP」ボタンが表示され公式ページが開きます。名刺にURLが未記載の場合はグレーの「検索」ボタンが表示され、会社名の最新ニュースや事業内容をワンタップで確認できます。</p>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="font-bold text-slate-900 text-xs">📝 商談メモ・備考（累積・履歴管理）</div>
+          <p class="text-slate-600">各名刺の「編集」画面からメモを登録できます。「📅 今日の日付」を押すと最新日付が先頭に入り、過去のメモを消さずに蓄積できます。カード表面には最新メモが大きく表示され、「過去 (〇件) ▼」を押せばその場で全履歴が確認できます。</p>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="font-bold text-slate-900 text-xs">📱 スマホ（iPhone等）でのクイック操作</div>
+          <p class="text-slate-600">カード右上の「⋮」メニューからワンタップで「保留」または「ゴミ箱」へ移動できます。移動直後は画面下に「元に戻す」ボタンが出るため押し間違いでも安全です。</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 名刺編集モーダル (#edit-card-modal) -->
+  <div id="edit-card-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white w-full max-w-lg rounded-3xl shadow-xl border border-slate-200 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
+      
+      <div class="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+        <h3 class="text-sm font-bold flex items-center gap-2">
+          <i class="fa-solid fa-pen-to-square text-indigo-400"></i>
+          <span>名刺情報の編集</span>
+        </h3>
+        <button type="button" onclick="closeEditModal()" class="text-slate-400 hover:text-white p-1 text-sm rounded-lg transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="edit-card-form" onsubmit="saveEditedCard(event)" class="p-5 space-y-3.5 text-xs">
+        <input type="hidden" id="edit-card-id">
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">グループ</label>
+            <select id="edit-card-group" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="主要取引先">主要取引先</option>
+              <option value="見込み客">見込み客</option>
+              <option value="協力会社">協力会社</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">会社名</label>
+            <input type="text" id="edit-card-company" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">会社名よみ (ひらがな)</label>
+            <input type="text" id="edit-card-company-kana" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">部署名</label>
+            <input type="text" id="edit-card-department" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">氏名 <span class="text-rose-500">*</span></label>
+            <input type="text" id="edit-card-name" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">氏名よみ (ひらがな)</label>
+            <input type="text" id="edit-card-name-kana" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">役職</label>
+            <input type="text" id="edit-card-title" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">代表電話 (TEL)</label>
+            <input type="text" id="edit-card-phone" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">携帯番号 (Mobile)</label>
+            <input type="text" id="edit-card-mobile" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">メールアドレス</label>
+            <input type="email" id="edit-card-email" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">HP・WebサイトURL</label>
+            <input type="text" id="edit-card-website" placeholder="https://example.com" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">所在地・住所 (MAP連携)</label>
+          <input type="text" id="edit-card-address" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <!-- 商談メモ・備考エリア -->
+        <div class="bg-amber-50/70 p-3 rounded-2xl border border-amber-200/90 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="block font-bold text-amber-900 flex items-center gap-1.5">
+              <i class="fa-solid fa-note-sticky text-amber-600"></i>
+              <span>商談メモ・備考（累積・履歴管理）</span>
+            </label>
+            <button type="button" onclick="insertTodayDateToMemo()" class="text-[10px] bg-amber-200/80 hover:bg-amber-300 text-amber-900 font-bold px-2 py-0.5 rounded-lg border border-amber-400/50 transition">
+              📅 今日の日付を追記
+            </button>
+          </div>
+          <textarea id="edit-card-memo" rows="3" placeholder="【2026/09/11】見積提出。次回10月に再訪予定。" class="w-full bg-white border border-amber-200 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-y"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 transition">
+            キャンセル
+          </button>
+          <button type="submit" class="px-5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-xs transition active:scale-95">
+            修正を保存する
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- スマホ用ボトムアクションシート (#card-action-sheet) -->
+  <div id="card-action-sheet" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4" onclick="closeCardActionSheet()">
+    <div class="bg-white w-full sm:max-w-xs rounded-t-3xl sm:rounded-3xl p-4 space-y-2 shadow-2xl border border-slate-200 animate-in slide-in-from-bottom duration-150" onclick="event.stopPropagation()">
+      <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-2 sm:hidden"></div>
+      <div id="action-sheet-title" class="text-xs font-bold text-slate-800 px-2 truncate mb-2">選択した名刺の操作</div>
+      <button type="button" id="action-sheet-move-btn" class="w-full flex items-center gap-2.5 p-2.5 text-xs font-semibold text-amber-800 hover:bg-amber-50 rounded-xl transition">
+        <i class="fa-solid fa-arrow-right-arrow-left text-amber-500 w-4 text-center"></i>
+        <span>異動・転職 保留へ移動</span>
+      </button>
+      <button type="button" id="action-sheet-trash-btn" class="w-full flex items-center gap-2.5 p-2.5 text-xs font-semibold text-rose-800 hover:bg-rose-50 rounded-xl transition">
+        <i class="fa-solid fa-trash text-rose-500 w-4 text-center"></i>
+        <span>ゴミ箱へ移動</span>
+      </button>
+      <button type="button" onclick="closeCardActionSheet()" class="w-full py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-xl transition mt-1">
+        閉じる
+      </button>
+    </div>
+  </div>
+
+  <!-- 原本写真プレビューモーダル (#photo-preview-modal) -->
+  <div id="photo-preview-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onclick="closePhotoPreview()">
+    <div class="relative max-w-2xl w-full bg-slate-900 rounded-3xl overflow-hidden p-2 shadow-2xl" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between px-3 py-2 text-white">
+        <span id="preview-modal-title" class="text-xs font-bold truncate">名刺原本プレビュー</span>
+        <button type="button" onclick="closePhotoPreview()" class="text-slate-400 hover:text-white p-1 text-sm rounded-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="flex items-center justify-center p-2 bg-black/40 rounded-2xl min-h-[250px] max-h-[75vh] overflow-auto">
+        <img id="preview-modal-img" src="" alt="名刺原本" class="max-w-full max-h-[70vh] object-contain rounded-lg">
+      </div>
+    </div>
+  </div>
+
+  <!-- ローディング表示 (#loading-overlay) -->
+  <div id="loading-overlay" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center">
+    <div class="bg-white px-5 py-4 rounded-2xl shadow-xl flex items-center gap-3 text-xs font-bold text-slate-800">
+      <i class="fa-solid fa-circle-notch fa-spin text-indigo-600 text-base"></i>
+      <span id="loading-message">処理中...</span>
+    </div>
+  </div>
+
+  <!-- 操作通知トースト (#toast-box) -->
+  <div id="toast-box" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 transform transition-all duration-200 opacity-0 pointer-events-none translate-y-3">
+    <div class="bg-slate-900/95 backdrop-blur text-white px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-medium border border-slate-700">
+      <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
+      <span id="toast-msg">通知メッセージ</span>
+      <button type="button" id="toast-undo-btn" class="hidden ml-1 text-indigo-300 hover:text-indigo-200 font-bold underline cursor-pointer text-[11px]">
+        元に戻す
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // グローバルデータ管理
+    var allCards = [];
+    var currentMainTab = 'active';
+    var showAllYomi = false;
+    var expandedYomiIds = new Set();
+    var selectedIds = new Set();
+    var lastActionUndoCallback = null;
+    var undoToastTimeout = null;
+
+    // 初期化
+    window.addEventListener('DOMContentLoaded', function() {
+      loadCardsFromSpreadsheet();
+    });
+
+    // 名刺一覧データの取得 (fetch API)
+    function loadCardsFromSpreadsheet() {
+      showLoading('データを読み込んでいます...');
+      fetch('/api/cards')
+        .then(function(response) {
+          if (!response.ok) throw new Error('HTTPエラー: ' + response.status);
+          return response.json();
+        })
+        .then(function(res) {
+          hideLoading();
+          if (res.success) {
+            allCards = res.cards || [];
+            if (res.spreadsheetUrl) setHeaderSheetUrl(res.spreadsheetUrl);
+            applyFilters();
+          } else {
+            showToast(res.error || 'データの取得に失敗しました', 'error');
+          }
+        })
+        .catch(function(err) {
+          // 開発中・サーバー未起動時のフォールバック用デモデータ
+          hideLoading();
+          allCards = [
+            {
+              id: 'demo_1',
+              name: '佐藤 健太',
+              name_kana: 'さとう けんた',
+              company: '株式会社オダシマ技術研究所',
+              company_kana: 'かぶしきがいしゃおだしまぎじゅつけんきゅうしょ',
+              title: '営業部長',
+              department: 'ソリューション営業部',
+              address: '岩手県北上市本通り2丁目',
+              phone: '0197-65-1111',
+              mobile: '090-1234-5678',
+              email: 'kenta.sato@example.com',
+              website: 'https://odashima.co.jp',
+              group: '主要取引先',
+              status: '現役',
+              memo: '【2026/09/11】新提案書を提出。次回10月に再訪予定。\n【2026/07/20】部長交代のご挨拶。\n【2026/04/15】展示会にて名刺交換。ゴルフ好き。'
+            },
+            {
+              id: 'demo_2',
+              name: '鈴木 美咲',
+              name_kana: 'すずき みさき',
+              company: '東北建機開発 株式会社',
+              company_kana: 'とうほくけんきかいはつ',
+              title: '課長代理',
+              department: '調達購買部',
+              address: '宮城県仙台市青葉区一番町',
+              phone: '022-222-3333',
+              mobile: '080-9876-5432',
+              email: 'misaki.s@example.com',
+              website: '',
+              group: '見込み客',
+              status: '現役',
+              memo: '【2026/08/05】見積依頼を受領。担当者変更なし。'
+            }
+          ];
+          applyFilters();
+        });
+    }
+
+    function setHeaderSheetUrl(url) {
+      var btn = document.getElementById('header-sheet-link');
+      if (btn && url) btn.href = url;
+    }
+
+    // ★ 最新メモの表面表示 ＆ 過去履歴のアコーディオン展開 ★
+    function formatMemoDisplay(memoText, cardId, isMobile) {
+      if (!memoText) return '';
+      var lines = memoText.split(/\r?\n/).map(function(l) { return l.trim(); }).filter(function(l) { return l.length > 0; });
+      if (lines.length === 0) return '';
+
+      var latest = lines[0];
+      var historyLines = lines.slice(1);
+
+      if (isMobile) {
+        var historyHtml = '';
+        if (historyLines.length > 0) {
+          historyHtml = '<div id="memo-full-mobile-' + cardId + '" data-count="' + historyLines.length + '" class="hidden pt-2 mt-2 border-t border-amber-200/80 space-y-1.5 text-[10px] text-amber-800 leading-relaxed break-words">' +
+            historyLines.map(function(line) {
+              return '<div class="pl-1.5 border-l-2 border-amber-400 bg-white/60 p-1 rounded-r-md">' + escapeHtml(line) + '</div>';
+            }).join('') +
+            '</div>';
+        }
+
+        var toggleBtnHtml = '';
+        if (historyLines.length > 0) {
+          toggleBtnHtml = '<button type="button" id="memo-toggle-btn-mobile-' + cardId + '" onclick="toggleMemoExpand(\'' + cardId + '\')" class="text-[10px] text-amber-800 hover:text-amber-950 font-bold ml-auto shrink-0 cursor-pointer inline-flex items-center gap-1 bg-amber-100/90 active:bg-amber-200 px-2 py-0.5 rounded-lg border border-amber-300/70 transition">' +
+            '<i class="fa-solid fa-chevron-down text-[8px]"></i> 過去 (' + historyLines.length + '件)' +
+            '</button>';
+        }
+
+        return '<div class="p-2.5 bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-200/90 rounded-2xl text-xs text-amber-950 leading-snug shadow-2xs space-y-1">' +
+          '<div class="flex items-center justify-between gap-1 text-[10px] font-bold text-amber-800">' +
+            '<span class="flex items-center gap-1"><i class="fa-solid fa-note-sticky text-amber-600"></i> 最新商談メモ</span>' +
+            toggleBtnHtml +
+          '</div>' +
+          '<div class="text-xs font-semibold text-slate-800 break-words leading-relaxed pl-0.5">' + escapeHtml(latest) + '</div>' +
+          historyHtml +
+        '</div>';
+      } else {
+        // PCテーブル表示用
+        var pcHistoryHtml = '';
+        if (historyLines.length > 0) {
+          pcHistoryHtml = '<div id="memo-full-' + cardId + '" data-count="' + historyLines.length + '" class="hidden pt-1.5 mt-1 border-t border-amber-200/80 space-y-1 text-[10px] text-amber-900 leading-tight">' +
+            historyLines.map(function(line) {
+              return '<div class="pl-1.5 border-l-2 border-amber-400 truncate bg-white/70 p-0.5 rounded-r" title="' + escapeHtml(line) + '">' + escapeHtml(line) + '</div>';
+            }).join('') +
+            '</div>';
+        }
+
+        var pcToggleBtnHtml = '';
+        if (historyLines.length > 0) {
+          pcToggleBtnHtml = '<button type="button" id="memo-toggle-btn-' + cardId + '" onclick="toggleMemoExpand(\'' + cardId + '\')" class="text-[9px] text-amber-800 hover:text-amber-950 font-bold ml-auto shrink-0 cursor-pointer inline-flex items-center gap-0.5 bg-amber-100/80 hover:bg-amber-200 px-1.5 py-0.2 rounded border border-amber-300/60 transition">' +
+            '<i class="fa-solid fa-chevron-down text-[8px]"></i> 過去' + historyLines.length + '件' +
+            '</button>';
+        }
+
+        return '<div class="mt-1.5 text-[10px] text-amber-950 bg-amber-50/90 border border-amber-200/90 rounded-xl p-2 max-w-[300px] shadow-2xs">' +
+          '<div class="flex items-center justify-between gap-1 mb-1">' +
+            '<span class="text-[9px] font-bold text-amber-800 flex items-center gap-1"><i class="fa-solid fa-note-sticky text-amber-600 text-[9px]"></i>最新商談メモ</span>' +
+            pcToggleBtnHtml +
+          '</div>' +
+          '<div class="truncate font-semibold text-slate-800 text-[11px]" title="' + escapeHtml(latest) + '">' + escapeHtml(latest) + '</div>' +
+          pcHistoryHtml +
+        '</div>';
+      }
+    }
+
+    function toggleMemoExpand(cardId) {
+      // PC側要素
+      var fullEl = document.getElementById('memo-full-' + cardId);
+      var btnEl = document.getElementById('memo-toggle-btn-' + cardId);
+      if (fullEl) {
+        if (fullEl.classList.contains('hidden')) {
+          fullEl.classList.remove('hidden');
+          if (btnEl) btnEl.innerHTML = '<i class="fa-solid fa-chevron-up text-[8px]"></i> 閉じる';
+        } else {
+          fullEl.classList.add('hidden');
+          if (btnEl) btnEl.innerHTML = '<i class="fa-solid fa-chevron-down text-[8px]"></i> 過去' + fullEl.getAttribute('data-count') + '件';
+        }
+      }
+      // モバイル側要素
+      var fullMobileEl = document.getElementById('memo-full-mobile-' + cardId);
+      var btnMobileEl = document.getElementById('memo-toggle-btn-mobile-' + cardId);
+      if (fullMobileEl) {
+        if (fullMobileEl.classList.contains('hidden')) {
+          fullMobileEl.classList.remove('hidden');
+          if (btnMobileEl) btnMobileEl.innerHTML = '<i class="fa-solid fa-chevron-up text-[8px]"></i> 閉じる';
+        } else {
+          fullMobileEl.classList.add('hidden');
+          if (btnMobileEl) btnMobileEl.innerHTML = '<i class="fa-solid fa-chevron-down text-[8px]"></i> 過去 (' + fullMobileEl.getAttribute('data-count') + '件)';
+        }
+      }
+    }
+
+    function insertTodayDateToMemo() {
+      var memoEl = document.getElementById('edit-card-memo');
+      if (!memoEl) return;
+      var now = new Date();
+      var y = now.getFullYear();
+      var m = ('0' + (now.getMonth() + 1)).slice(-2);
+      var d = ('0' + now.getDate()).slice(-2);
+      var tag = '【' + y + '/' + m + '/' + d + '】 ';
+      
+      var currentVal = memoEl.value.trim();
+      if (currentVal) {
+        memoEl.value = tag + '\n' + currentVal;
+      } else {
+        memoEl.value = tag;
+      }
+      memoEl.focus();
+      memoEl.setSelectionRange(tag.length, tag.length);
+    }
+
+    function applyFilters() {
+      var searchKeyword = (document.getElementById('search-input') ? document.getElementById('search-input').value : '').toLowerCase().trim();
+      var selectedGroup = document.getElementById('group-filter') ? document.getElementById('group-filter').value : 'ALL';
+
+      var activeCards = [];
+      var movedCards = [];
+      var trashCards = [];
+
+      allCards.forEach(function(c) {
+        var status = c.status || '現役';
+        if (status === '異動・転職 保留') movedCards.push(c);
+        else if (status === 'ゴミ箱') trashCards.push(c);
+        else activeCards.push(c);
+      });
+
+      // バッジ件数更新
+      var bActive = document.getElementById('count-badge-active');
+      var bMoved = document.getElementById('count-badge-moved');
+      var bTrash = document.getElementById('count-badge-trash');
+      if (bActive) bActive.textContent = activeCards.length;
+      if (bMoved) bMoved.textContent = movedCards.length;
+      if (bTrash) bTrash.textContent = trashCards.length;
+
+      // 検索・グループフィルタリング
+      var filteredActive = activeCards.filter(function(c) {
+        if (selectedGroup !== 'ALL' && c.group !== selectedGroup) return false;
+        if (!searchKeyword) return true;
+        var searchTarget = [
+          c.name, c.name_kana, c.company, c.company_kana,
+          c.title, c.department, c.address, c.phone, c.mobile,
+          c.email, c.memo
+        ].join(' ').toLowerCase();
+        return searchTarget.indexOf(searchKeyword) > -1;
+      });
+
+      renderActiveCards(filteredActive);
+      renderStatusList('moved', movedCards);
+      renderStatusList('trash', trashCards);
+    }
+
+    function renderActiveCards(cards) {
+      var tbody = document.getElementById('cards-table-body');
+      var mobileContainer = document.getElementById('cards-mobile-list');
+      var emptyEl = document.getElementById('empty-state');
+
+      if (!tbody || !mobileContainer) return;
+
+      if (cards.length === 0) {
+        tbody.innerHTML = '';
+        mobileContainer.innerHTML = '';
+        if (emptyEl) emptyEl.classList.remove('hidden');
+        return;
+      }
+
+      if (emptyEl) emptyEl.classList.add('hidden');
+
+      var tableHtml = '';
+      var mobileHtml = '';
+
+      cards.forEach(function(c) {
+        var isChecked = selectedIds.has(c.id);
+        var isYomi = showAllYomi || expandedYomiIds.has(c.id);
+
+        // HP直リンク or 会社名検索リンク
+        var websiteLinkHtml = '';
+        if (c.website) {
+          var cleanUrl = c.website.indexOf('http') === 0 ? c.website : ('http://' + c.website);
+          websiteLinkHtml = '<a href="' + escapeHtml(cleanUrl) + '" target="_blank" rel="noopener noreferrer" title="公式HPを開く" class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded text-[10px] font-bold border border-sky-200 cursor-pointer shrink-0">' +
+            '<i class="fa-solid fa-globe text-[10px] text-sky-600"></i><span>HP</span></a>';
+        } else if (c.company) {
+          var googleSearchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(c.company);
+          websiteLinkHtml = '<a href="' + googleSearchUrl + '" target="_blank" rel="noopener noreferrer" title="URL未記載のため会社名をGoogle検索します" class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-[10px] font-medium border border-slate-200 cursor-pointer shrink-0">' +
+            '<i class="fa-solid fa-magnifying-glass text-[9px] text-slate-500"></i><span>検索</span></a>';
+        }
+
+        var memoDisplayPc = formatMemoDisplay(c.memo, c.id, false);
+        var memoDisplayMobile = formatMemoDisplay(c.memo, c.id, true);
+
+        // PC行
+        tableHtml += '<tr class="hover:bg-slate-50/80 transition-colors ' + (isChecked ? 'bg-indigo-50/40' : '') + '">' +
+          '<td class="py-3 pl-3 pr-2 text-center">' +
+            '<input type="checkbox" onchange="toggleSelectCard(\'' + c.id + '\', this.checked)" ' + (isChecked ? 'checked' : '') + ' class="rounded text-indigo-600 focus:ring-0">' +
+          '</td>' +
+          '<td class="py-3 px-2 font-medium text-slate-600">' +
+            '<span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-lg border border-slate-200 text-[11px]">' + escapeHtml(c.group || '未分類') + '</span>' +
+          '</td>' +
+          '<td class="py-3 px-3">' +
+            '<div class="flex items-center gap-2.5">' +
+              (c.avatarUrl ? '<img src="' + escapeHtml(c.avatarUrl) + '" alt="" class="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0 shadow-2xs">' : '<div class="w-9 h-9 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-xs shrink-0">' + escapeHtml((c.name || '').substring(0, 1)) + '</div>') +
+              '<div class="min-w-0">' +
+                '<div class="font-bold text-slate-900 text-sm flex items-center gap-1.5">' +
+                  '<span>' + escapeHtml(c.name || '氏名未設定') + '</span>' +
+                  (c.title ? '<span class="text-slate-500 font-normal text-xs">(' + escapeHtml(c.title) + ')</span>' : '') +
+                '</div>' +
+                (isYomi && c.name_kana ? '<div class="text-[10px] text-indigo-600 font-mono mt-0.5">' + escapeHtml(c.name_kana) + '</div>' : '') +
+                memoDisplayPc +
+              '</div>' +
+            '</div>' +
+          '</td>' +
+          '<td class="py-3 px-3">' +
+            '<div class="font-semibold text-slate-800 flex items-center gap-1.5 flex-wrap">' +
+              '<span>' + escapeHtml(c.company || '-') + '</span>' +
+              websiteLinkHtml +
+            '</div>' +
+            (isYomi && c.company_kana ? '<div class="text-[10px] text-slate-400 font-mono mt-0.5">' + escapeHtml(c.company_kana) + '</div>' : '') +
+            (c.department ? '<div class="text-[11px] text-slate-500 mt-0.5">' + escapeHtml(c.department) + '</div>' : '') +
+          '</td>' +
+          '<td class="py-3 px-3 text-slate-600">' +
+            (c.address ? '<a href="https://maps.google.com/?q=' + encodeURIComponent(c.address) + '" target="_blank" class="hover:text-indigo-600 hover:underline line-clamp-2 leading-tight">' + escapeHtml(c.address) + '</a>' : '-') +
+          '</td>' +
+          '<td class="py-3 px-3 font-mono text-[11px] text-slate-700">' +
+            (c.phone ? '<div><i class="fa-solid fa-phone text-slate-400 text-[10px] mr-1"></i><a href="tel:' + escapeHtml(c.phone) + '" class="hover:text-indigo-600">' + escapeHtml(c.phone) + '</a></div>' : '') +
+            (c.mobile ? '<div><i class="fa-solid fa-mobile text-slate-400 text-[10px] mr-1"></i><a href="tel:' + escapeHtml(c.mobile) + '" class="hover:text-indigo-600">' + escapeHtml(c.mobile) + '</a></div>' : '') +
+            (!c.phone && !c.mobile ? '-' : '') +
+          '</td>' +
+          '<td class="py-3 px-3 font-mono text-[11px] text-slate-700 truncate max-w-[160px]">' +
+            (c.email ? '<a href="mailto:' + escapeHtml(c.email) + '" class="text-indigo-600 hover:underline truncate block">' + escapeHtml(c.email) + '</a>' : '-') +
+          '</td>' +
+          '<td class="py-3 px-3 text-center">' +
+            '<div class="inline-flex items-center gap-1">' +
+              (c.fileUrl ? '<button type="button" onclick="openPhotoPreview(\'' + escapeHtml(c.fileUrl) + '\', \'' + escapeHtml(c.name) + '\')" title="原本写真を見る" class="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition"><i class="fa-regular fa-image"></i></button>' : '') +
+              '<button type="button" onclick="openEditModal(\'' + c.id + '\')" title="名刺を編集" class="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition"><i class="fa-solid fa-pen-to-square"></i></button>' +
+              '<button type="button" onclick="moveSingleCard(\'' + c.id + '\', \'異動・転職 保留\')" title="保留へ移動" class="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>' +
+              '<button type="button" onclick="moveSingleCard(\'' + c.id + '\', \'ゴミ箱\')" title="ゴミ箱へ移動" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"><i class="fa-solid fa-trash"></i></button>' +
+            '</div>' +
+          '</td>' +
+        '</tr>';
+
+        // モバイルカード
+        mobileHtml += '<div class="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-2xs space-y-2.5">' +
+          '<div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">' +
+            '<div class="flex items-center gap-2">' +
+              '<input type="checkbox" onchange="toggleSelectCard(\'' + c.id + '\', this.checked)" ' + (isChecked ? 'checked' : '') + ' class="rounded text-indigo-600 focus:ring-0">' +
+              '<span class="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-lg border border-slate-200">' + escapeHtml(c.group || '未分類') + '</span>' +
+            '</div>' +
+            '<div class="flex items-center gap-1">' +
+              (c.fileUrl ? '<button type="button" onclick="openPhotoPreview(\'' + escapeHtml(c.fileUrl) + '\', \'' + escapeHtml(c.name) + '\')" class="text-xs px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-medium inline-flex items-center gap-1 transition"><i class="fa-regular fa-image"></i> 原本</button>' : '') +
+              '<button type="button" onclick="toggleSingleYomi(\'' + c.id + '\')" class="text-xs px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-medium transition">' + (isYomi ? 'よみ隠す' : 'よみ') + '</button>' +
+              '<button type="button" onclick="openCardActionSheet(\'' + c.id + '\', \'' + escapeHtml(c.name) + '\')" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="flex items-start gap-3">' +
+            (c.avatarUrl ? '<img src="' + escapeHtml(c.avatarUrl) + '" alt="" class="w-12 h-12 rounded-full object-cover border border-slate-200 shrink-0 shadow-xs">' : '<div class="w-12 h-12 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-base shrink-0">' + escapeHtml((c.name || '').substring(0, 1)) + '</div>') +
+            '<div class="flex-1 min-w-0">' +
+              '<div class="flex items-center gap-1.5 flex-wrap">' +
+                '<span class="text-xs font-bold text-slate-800">' + escapeHtml(c.company || '-') + '</span>' +
+                websiteLinkHtml +
+              '</div>' +
+              (isYomi && c.company_kana ? '<div class="text-[10px] text-slate-400 font-mono mt-0.5">' + escapeHtml(c.company_kana) + '</div>' : '') +
+              (c.department ? '<div class="text-[11px] text-slate-500 mt-0.5">' + escapeHtml(c.department) + '</div>' : '') +
+              '<div class="flex items-baseline gap-2 flex-wrap mt-1">' +
+                '<span class="text-base font-bold text-slate-900">' + escapeHtml(c.name || '氏名未設定') + '</span>' +
+                (c.title ? '<span class="text-xs text-slate-600 font-medium">' + escapeHtml(c.title) + '</span>' : '') +
+              '</div>' +
+              (isYomi && c.name_kana ? '<div class="text-[10px] text-indigo-600 font-mono mt-0.5">' + escapeHtml(c.name_kana) + '</div>' : '') +
+            '</div>' +
+          '</div>' +
+
+          memoDisplayMobile +
+
+          (c.address ? '<div class="text-[11px] text-slate-500 flex items-start gap-1"><i class="fa-solid fa-location-dot text-slate-400 mt-0.5 shrink-0"></i><a href="https://maps.google.com/?q=' + encodeURIComponent(c.address) + '" target="_blank" class="hover:underline line-clamp-1 break-all">' + escapeHtml(c.address) + '</a></div>' : '') +
+
+          '<div class="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-slate-100">' +
+            (c.phone || c.mobile ? '<a href="tel:' + escapeHtml(c.mobile || c.phone) + '" class="flex items-center justify-center gap-1 py-1.5 bg-emerald-50 active:bg-emerald-100 text-emerald-700 rounded-xl font-bold text-xs border border-emerald-200 transition"><i class="fa-solid fa-phone"></i> 発信</a>' : '<div class="py-1.5 bg-slate-50 text-slate-400 text-center rounded-xl text-xs">-</div>') +
+            (c.email ? '<a href="mailto:' + escapeHtml(c.email) + '" class="flex items-center justify-center gap-1 py-1.5 bg-indigo-50 active:bg-indigo-100 text-indigo-700 rounded-xl font-bold text-xs border border-indigo-200 transition"><i class="fa-solid fa-envelope"></i> メール</a>' : '<div class="py-1.5 bg-slate-50 text-slate-400 text-center rounded-xl text-xs">-</div>') +
+            '<button type="button" onclick="openEditModal(\'' + c.id + '\')" class="flex items-center justify-center gap-1 py-1.5 bg-slate-100 active:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs border border-slate-200 transition"><i class="fa-solid fa-pen-to-square"></i> 編集</button>' +
+          '</div>' +
+        '</div>';
+      });
+
+      tbody.innerHTML = tableHtml;
+      mobileContainer.innerHTML = mobileHtml;
+      updateBulkActionBar();
+    }
+
+    function renderStatusList(type, cards) {
+      var container = document.getElementById(type === 'moved' ? 'moved-cards-container' : 'trash-cards-container');
+      if (!container) return;
+
+      if (cards.length === 0) {
+        container.innerHTML = '<div class="bg-white p-6 rounded-2xl border border-slate-200 text-center text-xs text-slate-400">現在該当するデータはありません</div>';
+        return;
+      }
+
+      var html = '';
+      cards.forEach(function(c) {
+        html += '<div class="bg-white p-3.5 rounded-2xl border border-slate-200 flex items-center justify-between gap-3 shadow-2xs">' +
+          '<div class="min-w-0 flex-1">' +
+            '<div class="text-xs text-slate-500 font-medium truncate">' + escapeHtml(c.company || '会社名なし') + '</div>' +
+            '<div class="text-sm font-bold text-slate-800 truncate">' + escapeHtml(c.name || '氏名未設定') + ' <span class="text-xs font-normal text-slate-500">(' + escapeHtml(c.title || '役職なし') + ')</span></div>' +
+          '</div>' +
+          '<div class="shrink-0">' +
+            '<button type="button" onclick="moveSingleCard(\'' + c.id + '\', \'現役\')" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl border border-indigo-200 text-xs inline-flex items-center gap-1 transition">' +
+              '<i class="fa-solid fa-rotate-left text-xs"></i> <span>現役復帰</span>' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+      });
+      container.innerHTML = html;
+    }
+
+    function switchMainTab(tab) {
+      currentMainTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(function(b) {
+        b.classList.remove('bg-indigo-600', 'text-white', 'shadow-xs');
+        b.classList.add('bg-white', 'text-slate-600');
+      });
+      var currentBtn = document.getElementById('tab-btn-' + tab);
+      if (currentBtn) {
+        currentBtn.classList.remove('bg-white', 'text-slate-600');
+        currentBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-xs');
+      }
+
+      document.querySelectorAll('.tab-content').forEach(function(c) {
+        c.classList.add('hidden');
+      });
+      var currentContent = document.getElementById(tab + '-tab');
+      if (currentContent) currentContent.classList.remove('hidden');
+    }
+
+    function toggleAllYomi() {
+      showAllYomi = !showAllYomi;
+      var lbl = document.getElementById('all-yomi-label');
+      if (lbl) lbl.textContent = showAllYomi ? 'よみ表示中' : 'よみ非表示中';
+      applyFilters();
+    }
+
+    function toggleSingleYomi(cardId) {
+      if (expandedYomiIds.has(cardId)) expandedYomiIds.delete(cardId);
+      else expandedYomiIds.add(cardId);
+      applyFilters();
+    }
+
+    function toggleSelectCard(id, checked) {
+      if (checked) selectedIds.add(id);
+      else selectedIds.delete(id);
+      updateBulkActionBar();
+    }
+
+    function toggleSelectAll(checked) {
+      if (checked) {
+        allCards.forEach(function(c) {
+          if ((c.status || '現役') === '現役') selectedIds.add(c.id);
+        });
+      } else {
+        selectedIds.clear();
+      }
+      applyFilters();
+    }
+
+    function updateBulkActionBar() {
+      var bar = document.getElementById('bulk-action-bar');
+      var cnt = document.getElementById('bulk-selected-count');
+      if (!bar) return;
+      if (selectedIds.size > 0) {
+        bar.classList.remove('hidden');
+        bar.classList.add('inline-flex');
+        if (cnt) cnt.textContent = selectedIds.size + '件選択';
+      } else {
+        bar.classList.add('hidden');
+        bar.classList.remove('inline-flex');
+      }
+    }
+
+    function moveSingleCard(cardId, newStatus) {
+      var prevStatus = '現役';
+      var card = allCards.find(function(c) { return c.id === cardId; });
+      if (card) prevStatus = card.status || '現役';
+
+      executeStatusUpdate([cardId], newStatus, function() {
+        lastActionUndoCallback = function() {
+          executeStatusUpdate([cardId], prevStatus, null, '元に戻しました');
+        };
+        showUndoToast(newStatus === '現役' ? '現役名刺に復帰しました' : (newStatus + 'へ移動しました'));
+      });
+    }
+
+    function bulkMoveStatus(newStatus) {
+      if (selectedIds.size === 0) return;
+      var ids = Array.from(selectedIds);
+      executeStatusUpdate(ids, newStatus, function() {
+        selectedIds.clear();
+        showToast(ids.length + '件を' + newStatus + 'へ移動しました');
+      });
+    }
+
+    // ステータス更新処理 (fetch API)
+    function executeStatusUpdate(ids, newStatus, onSuccess, successMessage) {
+      showLoading('状態を更新中...');
+      fetch('/api/cards/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: ids, status: newStatus })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(res) {
+        hideLoading();
+        if (res && res.success) {
+          ids.forEach(function(id) {
+            var c = allCards.find(function(item) { return item.id === id; });
+            if (c) c.status = newStatus;
+          });
+          applyFilters();
+          if (onSuccess) onSuccess();
+          if (successMessage) showToast(successMessage);
+        } else {
+          showToast((res && res.error) || '更新に失敗しました', 'error');
+        }
+      })
+      .catch(function(err) {
+        hideLoading();
+        // 開発中のローカル反映
+        ids.forEach(function(id) {
+          var c = allCards.find(function(item) { return item.id === id; });
+          if (c) c.status = newStatus;
+        });
+        applyFilters();
+        if (onSuccess) onSuccess();
+        if (successMessage) showToast(successMessage);
+      });
+    }
+
+    function openEditModal(cardId) {
+      var c = allCards.find(function(item) { return item.id === cardId; });
+      if (!c) return;
+
+      var setVal = function(id, val) {
+        var el = document.getElementById(id);
+        if (el) el.value = val || '';
+      };
+
+      setVal('edit-card-id', c.id);
+      setVal('edit-card-group', c.group || '主要取引先');
+      setVal('edit-card-company', c.company);
+      setVal('edit-card-company-kana', c.company_kana);
+      setVal('edit-card-department', c.department);
+      setVal('edit-card-title', c.title);
+      setVal('edit-card-name', c.name);
+      setVal('edit-card-name-kana', c.name_kana);
+      setVal('edit-card-address', c.address);
+      setVal('edit-card-phone', c.phone);
+      setVal('edit-card-mobile', c.mobile);
+      setVal('edit-card-email', c.email);
+      setVal('edit-card-website', c.website);
+      setVal('edit-card-memo', c.memo);
+
+      var modal = document.getElementById('edit-card-modal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+      var modal = document.getElementById('edit-card-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    // 名刺情報の編集保存 (fetch API)
+    function saveEditedCard(event) {
+      event.preventDefault();
+      var cardId = document.getElementById('edit-card-id').value;
+      var c = allCards.find(function(item) { return item.id === cardId; });
+      if (!c) return;
+
+      var getVal = function(id) {
+        var el = document.getElementById(id);
+        return el ? el.value.trim() : '';
+      };
+
+      var updated = {
+        id: cardId,
+        group: getVal('edit-card-group') || '主要取引先',
+        company: getVal('edit-card-company'),
+        company_kana: getVal('edit-card-company-kana'),
+        department: getVal('edit-card-department'),
+        title: getVal('edit-card-title'),
+        name: getVal('edit-card-name'),
+        name_kana: getVal('edit-card-name-kana'),
+        address: getVal('edit-card-address'),
+        phone: getVal('edit-card-phone'),
+        mobile: getVal('edit-card-mobile'),
+        email: getVal('edit-card-email'),
+        website: getVal('edit-card-website'),
+        memo: getVal('edit-card-memo'),
+        avatarUrl: c.avatarUrl || ''
+      };
+
+      showLoading('保存しています...');
+      fetch('/api/cards', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(res) {
+        hideLoading();
+        if (res && res.success) {
+          Object.assign(c, updated);
+          closeEditModal();
+          applyFilters();
+          showToast('名刺情報を保存しました');
+        } else {
+          showToast((res && res.error) || '保存に失敗しました', 'error');
+        }
+      })
+      .catch(function(err) {
+        hideLoading();
+        Object.assign(c, updated);
+        closeEditModal();
+        applyFilters();
+        showToast('名刺情報を保存しました (ローカル保存)');
+      });
+    }
+
+    // 名刺画像アップロード＆OCR解析 (fetch API)
+    function handleImageSelected(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(evt) {
+        var base64 = evt.target.result;
+        showLoading('AIが名刺を高精度スキャン中...');
+        fetch('/api/cards/ocr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64Image: base64, fileName: file.name })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(res) {
+          hideLoading();
+          if (res.success) {
+            showToast('名刺を登録しました！');
+            loadCardsFromSpreadsheet();
+          } else {
+            showToast(res.error || '登録失敗', 'error');
+          }
+        })
+        .catch(function(err) {
+          hideLoading();
+          showToast('通信エラーが発生しました', 'error');
+        });
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    }
+
+    function openPhotoPreview(url, name) {
+      var modal = document.getElementById('photo-preview-modal');
+      var img = document.getElementById('preview-modal-img');
+      var title = document.getElementById('preview-modal-title');
+      if (modal && img) {
+        img.src = url;
+        if (title) title.textContent = (name ? (name + ' 様の') : '') + '名刺原本プレビュー';
+        modal.classList.remove('hidden');
+      }
+    }
+
+    function closePhotoPreview() {
+      var modal = document.getElementById('photo-preview-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function openCardActionSheet(cardId, name) {
+      var sheet = document.getElementById('card-action-sheet');
+      var title = document.getElementById('action-sheet-title');
+      var moveBtn = document.getElementById('action-sheet-move-btn');
+      var trashBtn = document.getElementById('action-sheet-trash-btn');
+
+      if (title) title.textContent = name ? (name + ' 様の名刺操作') : '名刺の操作';
+      if (moveBtn) moveBtn.onclick = function() { closeCardActionSheet(); moveSingleCard(cardId, '異動・転職 保留'); };
+      if (trashBtn) trashBtn.onclick = function() { closeCardActionSheet(); moveSingleCard(cardId, 'ゴミ箱'); };
+
+      if (sheet) sheet.classList.remove('hidden');
+    }
+
+    function closeCardActionSheet() {
+      var sheet = document.getElementById('card-action-sheet');
+      if (sheet) sheet.classList.add('hidden');
+    }
+
+    function exportCardsToCsv() {
+      if (allCards.length === 0) {
+        showToast('エクスポートするデータがありません', 'error');
+        return;
+      }
+      var headers = ['ID', 'グループ', '会社名', '会社名よみ', '部署', '役職', '氏名', '氏名よみ', '住所', 'TEL', 'Mobile', 'Email', 'HP', 'ステータス', 'メモ'];
+      var rows = [headers];
+
+      allCards.forEach(function(c) {
+        rows.push([
+          c.id || '', c.group || '', c.company || '', c.company_kana || '',
+          c.department || '', c.title || '', c.name || '', c.name_kana || '',
+          c.address || '', c.phone || '', c.mobile || '', c.email || '',
+          c.website || '', c.status || '現役', (c.memo || '').replace(/\r?\n/g, ' ')
+        ]);
+      });
+
+      var csvContent = '\uFEFF' + rows.map(function(e) {
+        return e.map(function(val) {
+          return '"' + String(val).replace(/"/g, '""') + '"';
+        }).join(',');
+      }).join('\r\n');
+
+      var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'らくらく名刺管理_名刺一覧_' + new Date().toISOString().slice(0,10) + '.csv');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('CSVファイルをダウンロードしました');
+    }
+
+    function showLoading(msg) {
+      var overlay = document.getElementById('loading-overlay');
+      var messageEl = document.getElementById('loading-message');
+      if (messageEl) messageEl.textContent = msg || '処理中...';
+      if (overlay) overlay.classList.remove('hidden');
+    }
+
+    function hideLoading() {
+      var overlay = document.getElementById('loading-overlay');
+      if (overlay) overlay.classList.add('hidden');
+    }
+
+    function showToast(msg, type) {
+      var toast = document.getElementById('toast-box');
+      var msgEl = document.getElementById('toast-msg');
+      var icon = document.getElementById('toast-icon');
+      var undoBtn = document.getElementById('toast-undo-btn');
+
+      if (!toast || !msgEl) return;
+      msgEl.textContent = msg;
+      if (undoBtn) undoBtn.classList.add('hidden');
+
+      if (type === 'error') {
+        icon.className = 'fa-solid fa-circle-exclamation text-rose-400';
+      } else {
+        icon.className = 'fa-solid fa-circle-check text-emerald-400';
+      }
+
+      toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-3');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      if (undoToastTimeout) clearTimeout(undoToastTimeout);
+      undoToastTimeout = setTimeout(function() {
+        toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-3');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+      }, 3000);
+    }
+
+    function showUndoToast(msg) {
+      var toast = document.getElementById('toast-box');
+      var msgEl = document.getElementById('toast-msg');
+      var icon = document.getElementById('toast-icon');
+      var undoBtn = document.getElementById('toast-undo-btn');
+
+      if (!toast || !msgEl) return;
+      msgEl.textContent = msg;
+      icon.className = 'fa-solid fa-circle-check text-emerald-400';
+
+      if (undoBtn && lastActionUndoCallback) {
+        undoBtn.classList.remove('hidden');
+        undoBtn.onclick = function() {
+          var cb = lastActionUndoCallback;
+          lastActionUndoCallback = null;
+          undoBtn.classList.add('hidden');
+          if (cb) cb();
+        };
+      }
+
+      toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-3');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      if (undoToastTimeout) clearTimeout(undoToastTimeout);
+      undoToastTimeout = setTimeout(function() {
+        toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-3');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        lastActionUndoCallback = null;
+      }, 5000);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
