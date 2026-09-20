@@ -20,6 +20,8 @@
       background: #cbd5e1;
       border-radius: 4px;
     }
+    @keyframes card-highlight { 0%, 100% { background-color: transparent; } 35% { background-color: #dbeafe; } }
+    .card-highlight { animation: card-highlight 1.8s ease-in-out 2; }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col antialiased">
@@ -41,6 +43,7 @@
       </div>
 
       <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <button type="button" onclick="openAiModeModal()" id="ai-mode-button" class="inline-flex items-center gap-1.5 bg-slate-800 text-slate-200 text-xs px-2.5 py-1.5 rounded-xl border border-slate-700">🍵 縁堂教授(無料)</button>
         <!-- 📗 スプレッドシートを開くボタン -->
         <a id="header-sheet-link" href="#" target="_blank" rel="noopener noreferrer" title="データシートを開く" class="inline-flex items-center gap-1.5 bg-emerald-700/80 hover:bg-emerald-600 text-white text-xs px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-500/40 transition font-medium shadow-xs">
           <i class="fa-solid fa-file-excel text-emerald-200"></i>
@@ -60,6 +63,10 @@
           <span>撮影・UP</span>
         </button>
         <input type="file" id="camera-single-input" accept="image/*" class="hidden" onchange="handleImageSelected(event)">
+        <button type="button" onclick="document.getElementById('camera-batch-input').click()" class="inline-flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs px-3 py-1.5 rounded-xl shadow font-semibold transition active:scale-95">
+          📸 まとめ撮り(4枚)
+        </button>
+        <input type="file" id="camera-batch-input" accept="image/*" multiple class="hidden" onchange="handleBatchImagesSelected(event)">
       </div>
     </div>
   </header>
@@ -96,6 +103,10 @@
 
     <!-- 現役名刺タブ (#active-tab) -->
     <div id="active-tab" class="tab-content space-y-3">
+      <div id="registration-notice" class="hidden bg-emerald-50 border border-emerald-300 p-3 rounded-2xl flex items-center justify-between gap-3 text-xs text-emerald-950 shadow-sm">
+        <div><div class="font-bold">✅ 名刺の登録が完了しました！</div><div id="registration-notice-detail" class="font-semibold"></div></div>
+        <button type="button" id="registration-jump-button" class="bg-emerald-600 text-white px-3 py-1.5 rounded-xl font-bold">📋 詳細・編集へ移動</button>
+      </div>
       
       <!-- 検索・絞り込みツールバー -->
       <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs space-y-2">
@@ -401,6 +412,7 @@
       </button>
     </div>
   </div>
+  <div id="ai-mode-modal" class="hidden fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4" onclick="closeAiModeModal()"><div class="bg-white w-full max-w-md rounded-3xl p-5 space-y-3" onclick="event.stopPropagation()"><h3 class="font-bold text-slate-900">AIキャラクターを選択</h3><button type="button" onclick="selectAiMode(false)" class="w-full text-left p-3 rounded-2xl border">🍵 縁堂教授（無料OCR）</button><button type="button" onclick="selectAiMode(true)" class="w-full text-left p-3 rounded-2xl border border-amber-300 bg-amber-50">🎓 錦織教授（本気・有料API）<span class="block text-xs mt-1">Google Paid Tierの保護仕様を利用します。</span></button></div></div>
 
   <script>
     // グローバルデータ管理
@@ -411,6 +423,26 @@
     var selectedIds = new Set();
     var lastActionUndoCallback = null;
     var undoToastTimeout = null;
+    var lastRegisteredCardId = null;
+    var isHonkiMode = false;
+    function openAiModeModal() { document.getElementById('ai-mode-modal').classList.remove('hidden'); }
+    function closeAiModeModal() { document.getElementById('ai-mode-modal').classList.add('hidden'); }
+    function selectAiMode(honki) { isHonkiMode = honki; document.getElementById('ai-mode-button').textContent = honki ? '🎓 錦織教授(本気)' : '🍵 縁堂教授(無料)'; closeAiModeModal(); }
+
+    function showRegistrationNotice(card) {
+      if (!card) return;
+      lastRegisteredCardId = card.id;
+      var notice = document.getElementById('registration-notice');
+      var detail = document.getElementById('registration-notice-detail');
+      var jump = document.getElementById('registration-jump-button');
+      if (!notice || !detail || !jump) return;
+      detail.textContent = (card.company || '会社名未取得') + '　' + (card.name || '氏名未取得');
+      jump.onclick = function() {
+        var row = document.getElementById('card-row-' + lastRegisteredCardId);
+        if (row) { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); row.classList.remove('card-highlight'); void row.offsetWidth; row.classList.add('card-highlight'); }
+      };
+      notice.classList.remove('hidden');
+    }
 
     // 初期化
     window.addEventListener('DOMContentLoaded', function() {
@@ -671,7 +703,7 @@
         var memoDisplayMobile = formatMemoDisplay(c.memo, c.id, true);
 
         // PC行
-        tableHtml += '<tr class="hover:bg-slate-50/80 transition-colors ' + (isChecked ? 'bg-indigo-50/40' : '') + '">' +
+        tableHtml += '<tr id="card-row-' + escapeHtml(c.id) + '" class="hover:bg-slate-50/80 transition-colors ' + (isChecked ? 'bg-indigo-50/40' : '') + '">' +
           '<td class="py-3 pl-3 pr-2 text-center">' +
             '<input type="checkbox" onchange="toggleSelectCard(\'' + c.id + '\', this.checked)" ' + (isChecked ? 'checked' : '') + ' class="rounded text-indigo-600 focus:ring-0">' +
           '</td>' +
@@ -1022,6 +1054,7 @@
         .then(function(res) {
           hideLoading();
           if (res.success) {
+            if (res.cards && res.cards[0]) showRegistrationNotice(res.cards[0]);
             showToast('名刺を登録しました！');
             loadCardsFromSpreadsheet();
           } else {
@@ -1034,6 +1067,26 @@
         });
       };
       reader.readAsDataURL(file);
+      e.target.value = '';
+    }
+
+    function handleBatchImagesSelected(e) {
+      var files = Array.from(e.target.files || []).slice(0, 4);
+      if (!files.length) return;
+      var index = 0;
+      var next = function() {
+        var file = files[index++];
+        var reader = new FileReader();
+        reader.onload = function(evt) {
+          fetch('/api/cards/ocr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ base64Image: evt.target.result, fileName: file.name }) })
+            .then(function(res) { return res.json(); })
+            .then(function(res) { if (res.success && res.cards && res.cards[0]) showRegistrationNotice(res.cards[0]); if (index < files.length) next(); else { hideLoading(); loadCardsFromSpreadsheet(); showToast(files.length + '枚の名刺を登録しました！'); } })
+            .catch(function() { hideLoading(); showToast('まとめ撮りの一部で通信エラーが発生しました', 'error'); });
+        };
+        reader.readAsDataURL(file);
+      };
+      showLoading(files.length + '枚を順番に解析中...');
+      next();
       e.target.value = '';
     }
 
