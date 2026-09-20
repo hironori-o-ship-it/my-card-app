@@ -1237,5 +1237,47 @@
         .replace(/'/g, '&#039;');
     }
   </script>
+<style>
+  #yuno-guide-avatar {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 40;
+    width: 112px;
+    cursor: pointer;
+    filter: drop-shadow(0 8px 12px rgba(15, 23, 42, .22));
+    transition: transform .2s ease;
+  }
+
+  #yuno-guide-avatar:hover {
+    transform: translateY(-4px) scale(1.03);
+  }
+
+  #yuno-guide-avatar img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  @media (max-width: 640px) {
+    #yuno-guide-avatar {
+      width: 82px;
+      right: 10px;
+      bottom: 10px;
+    }
+  }
+</style>
+
+<button
+  id="yuno-guide-avatar"
+  type="button"
+  aria-label="結乃准教授の案内を開く"
+  onclick="openAiModeModal()"
+>
+  <img
+    src="./assets/yuno-junior-professor.png"
+    alt="結乃准教授"
+  >
+</button>
 </body>
 </html>
