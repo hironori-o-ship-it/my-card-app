@@ -22,6 +22,20 @@
     }
     @keyframes card-highlight { 0%, 100% { background-color: transparent; } 35% { background-color: #dbeafe; } }
     .card-highlight { animation: card-highlight 1.8s ease-in-out 2; }
+
+    @media (min-width: 768px) {
+      main table {
+        width: 100%;
+        table-layout: fixed;
+      }
+      main table th,
+      main table td {
+        min-width: 0 !important;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+    }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col antialiased">
