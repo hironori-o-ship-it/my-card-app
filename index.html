@@ -71,7 +71,7 @@
       </div>
 
       <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        <button type="button" onclick="openAiModeModal()" id="ai-mode-button" class="inline-flex items-center gap-1.5 bg-slate-800 text-slate-200 text-xs px-2.5 py-1.5 rounded-xl border border-slate-700">🍵 縁堂教授(無料)</button>
+        <button type="button" onclick="openAiModeModal()" id="ai-mode-button" class="inline-flex items-center gap-1.5 bg-slate-800 text-slate-200 text-xs px-2.5 py-1.5 rounded-xl border border-slate-700">🎓 錦織教授(有料API)</button>
 
         <!-- 同期ボタン -->
         <button type="button" onclick="loadCardsFromSpreadsheet()" title="最新データを再取得" class="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-700 transition">
@@ -448,7 +448,7 @@
     var lastActionUndoCallback = null;
     var undoToastTimeout = null;
     var lastRegisteredCardId = null;
-    var isHonkiMode = false;
+    var isHonkiMode = true;
     function openAiModeModal() { document.getElementById('ai-mode-modal').classList.remove('hidden'); }
     function closeAiModeModal() { document.getElementById('ai-mode-modal').classList.add('hidden'); }
     function selectAiMode(honki) { isHonkiMode = honki; document.getElementById('ai-mode-button').textContent = honki ? '🎓 錦織教授(本気)' : '🍵 縁堂教授(無料)'; closeAiModeModal(); }
