@@ -23,6 +23,13 @@
     @keyframes card-highlight { 0%, 100% { background-color: transparent; } 35% { background-color: #dbeafe; } }
     .card-highlight { animation: card-highlight 1.8s ease-in-out 2; }
 
+    @media (max-width: 1023px) {
+      main table {
+        min-width: 1180px;
+        table-layout: auto;
+      }
+    }
+
     @media (min-width: 1024px) {
       main table {
         width: 100%;
