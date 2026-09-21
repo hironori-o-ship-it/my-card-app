@@ -434,6 +434,8 @@
       </button>
     </div>
   </div>
+  <div id="assistant-help-modal" class="hidden fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4" onclick="closeAssistantHelpModal()"><div class="bg-white w-full max-w-lg rounded-3xl p-5 space-y-3" onclick="event.stopPropagation()"><div class="flex items-center justify-between"><h3 class="font-bold text-slate-900">結乃准教授に相談</h3><button type="button" onclick="closeAssistantHelpModal()" class="text-slate-400 text-lg">×</button></div><p class="text-xs text-slate-500">よくある質問を選んでください。固定案内で解決できない内容は教授へ相談できます。</p><div class="grid gap-2"><button type="button" onclick="showAssistantAnswer('search')" class="w-full text-left p-3 rounded-2xl border hover:bg-indigo-50 text-sm">検索にかからない／絞り込みたい</button><button type="button" onclick="showAssistantAnswer('camera')" class="w-full text-left p-3 rounded-2xl border hover:bg-indigo-50 text-sm">名刺を撮影・登録したい</button><button type="button" onclick="showAssistantAnswer('edit')" class="w-full text-left p-3 rounded-2xl border hover:bg-indigo-50 text-sm">名刺情報を修正したい</button><button type="button" onclick="showAssistantAnswer('status')" class="w-full text-left p-3 rounded-2xl border hover:bg-indigo-50 text-sm">保留・ゴミ箱から戻したい</button><button type="button" onclick="showAssistantAnswer('memo')" class="w-full text-left p-3 rounded-2xl border hover:bg-indigo-50 text-sm">商談メモを残したい</button><button type="button" onclick="showAssistantAnswer('yomi')" class="w-full text-left p-3 rounded-2xl border hover:bg-indigo-50 text-sm">よみを表示・非表示にしたい</button><button type="button" onclick="showAssistantAnswer('backup')" class="w-full text-left p-3 rounded-2xl border hover:bg-indigo-50 text-sm">バックアップやCSVを使いたい</button><button type="button" onclick="showAssistantAnswer('mobile')" class="w-full text-left p-3 rounded-2xl border hover:bg-indigo-50 text-sm">スマホで操作したい</button></div><div id="assistant-answer" class="hidden bg-indigo-50 border border-indigo-200 rounded-2xl p-3 text-xs text-slate-700 leading-relaxed"></div></div></div>
+
   <div id="ai-mode-modal" class="hidden fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4" onclick="closeAiModeModal()"><div class="bg-white w-full max-w-md rounded-3xl p-5 space-y-3" onclick="event.stopPropagation()"><h3 class="font-bold text-slate-900">AIキャラクターを選択</h3><button type="button" onclick="selectAiMode(false)" class="w-full text-left p-3 rounded-2xl border">🍵 縁堂教授（無料OCR）</button><button type="button" onclick="selectAiMode(true)" class="w-full text-left p-3 rounded-2xl border border-amber-300 bg-amber-50">🎓 錦織教授（本気・有料API）<span class="block text-xs mt-1">Google Paid Tierの保護仕様を利用します。</span></button></div></div>
 
   <script>
@@ -450,6 +452,13 @@
     function openAiModeModal() { document.getElementById('ai-mode-modal').classList.remove('hidden'); }
     function closeAiModeModal() { document.getElementById('ai-mode-modal').classList.add('hidden'); }
     function selectAiMode(honki) { isHonkiMode = honki; document.getElementById('ai-mode-button').textContent = honki ? '🎓 錦織教授(本気)' : '🍵 縁堂教授(無料)'; closeAiModeModal(); }
+
+    function openAssistantHelpModal() { document.getElementById('assistant-help-modal').classList.remove('hidden'); }
+    function closeAssistantHelpModal() { document.getElementById('assistant-help-modal').classList.add('hidden'); }
+    function showAssistantAnswer(type) {
+      var answers = { search: '検索欄に氏名・会社名・役職・商談メモ・住所を入力すると、入力中に絞り込まれます。グループ欄と組み合わせてください。', camera: '上部の「撮影・UP」は1枚登録、「まとめ撮り(4枚)」は最大4枚を順番に登録します。', edit: '一覧の鉛筆ボタンを押して内容を修正し、「修正を保存する」を押してください。', status: '保留やゴミ箱へ移動した名刺は、各タブを開いて「現役復帰」を押すと戻せます。', memo: '名刺の編集画面で商談メモを入力できます。「今日の日付を追記」で履歴の先頭に追加できます。', yomi: '上部の「よみ非表示中」を押すと、氏名よみ・会社名よみの表示を切り替えられます。', backup: 'バックアップ／復元タブからCSVエクスポートを利用できます。', mobile: 'スマホではカード右上のメニューから保留・ゴミ箱などの操作ができます。' };
+      var answer = document.getElementById('assistant-answer'); if (answer) { answer.textContent = answers[type] || ''; answer.classList.remove('hidden'); }
+    }
 
     function showRegistrationNotice(card) {
       if (!card) return;
@@ -1294,7 +1303,7 @@
   id="yuno-guide-avatar"
   type="button"
   aria-label="結乃准教授の案内を開く"
-  onclick="openAiModeModal()"
+  onclick="openAssistantHelpModal()"
 >
   <img
     src="./assets/yuno-junior-professor.png"
