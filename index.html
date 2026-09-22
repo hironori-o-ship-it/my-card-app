@@ -1329,3 +1329,14 @@
 }
 </style>
 </style>
+<script>
+function selectAiMode(honki) {
+  isHonkiMode = honki;
+  var button = document.getElementById('ai-mode-button');
+  if (button) button.textContent = honki ? '🎓 錦織教授(本気)' : '🍵 縁堂教授(無料)';
+  var avatar = document.querySelector('#yuno-guide-avatar img');
+  if (avatar) avatar.src = honki ? './assets/nishikori-professor.png' : './assets/yuno-junior-professor.png';
+  closeAiModeModal();
+  showToast(honki ? '錦織教授（有料API・保護モード）を選択しました' : '縁堂教授（無料OCRモード）を選択しました');
+}
+</script></script>
