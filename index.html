@@ -1368,3 +1368,23 @@ function selectAiMode(honki) {
   });
 })();
 </script></script>
+<script>
+(function(){
+  var defaults=[{label:'名刺交換のお礼',subject:'先日はありがとうございました',body:'{name}様\n\n先日はお時間をいただき、名刺交換の機会をありがとうございました。\n今後ともどうぞよろしくお願いいたします。'},{label:'資料・情報の送付',subject:'資料をお送りします',body:'{name}様\n\n先日お話しした資料をお送りします。\nご確認いただき、ご不明点がございましたらお気軽にお知らせください。'},{label:'面談・打合せの日程調整',subject:'お打合せの日程について',body:'{name}様\n\nお打合せの日程について、都合のよい日時をいくつかお知らせいただけますでしょうか。'},{label:'見積・提案のご案内',subject:'お見積り・ご提案について',body:'{name}様\n\nご依頼の件について、見積りまたは提案内容を整理してご連絡いたします。'},{label:'後日のフォローアップ',subject:'その後のご状況について',body:'{name}様\n\n先日のお話のその後について、状況をお伺いしたくご連絡しました。'}];
+  function all(){try{return defaults.concat(JSON.parse(localStorage.getItem('my-card-email-templates')||'[]'))}catch(e){return defaults.slice()}}
+  document.addEventListener('click',function(e){
+    var link=e.target.closest('a[href^="mailto:"]'); if(!link)return; e.preventDefault(); e.stopImmediatePropagation();
+    var email=link.getAttribute('href').replace(/^mailto:/,''), card=link.closest('#cards-mobile-list > div'), name=card?((card.querySelector('.text-base.font-bold')||{}).textContent||'お相手').trim():'お相手', list=all();
+    var box=document.createElement('div'); box.id='email-template-picker'; box.style.cssText='position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.65);display:flex;align-items:center;justify-content:center;padding:16px';
+    var p=document.createElement('div'); p.style.cssText='background:white;width:100%;max-width:440px;border-radius:24px;padding:20px;box-shadow:0 20px 40px rgba(0,0,0,.25)';
+    p.innerHTML='<h3 style="font-weight:700;color:#0f172a;margin:0 0 10px">メール定型文</h3><select id="et-s" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:12px"></select><input id="et-sub" style="width:100%;margin-top:9px;padding:9px;border:1px solid #cbd5e1;border-radius:12px" placeholder="件名"><textarea id="et-b" rows="7" style="width:100%;margin-top:9px;padding:9px;border:1px solid #cbd5e1;border-radius:12px;line-height:1.6"></textarea><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:10px"><button id="et-add" type="button">新しい定型文を追加</button><button id="et-save" type="button">この文面を保存</button><button id="et-cancel" type="button">キャンセル</button><button id="et-open" type="button" style="background:#4f46e5;color:white;border:0;border-radius:10px;padding:8px 12px;font-weight:700">メールを作成</button></div>'; box.appendChild(p); document.body.appendChild(box);
+    var s=p.querySelector('#et-s'), sub=p.querySelector('#et-sub'), b=p.querySelector('#et-b');
+    function render(){s.innerHTML=list.map(function(x,i){return "<option value=\""+i+"\">"+x.label+"</option>"}).join(''); var x=list[0]; sub.value=x.subject; b.value=x.body.replace('{name}',name)}
+    function load(){var x=list[Number(s.value)]; sub.value=x.subject; b.value=x.body.replace('{name}',name)}
+    render(); s.onchange=load;
+    p.querySelector('#et-save').onclick=function(){var i=Number(s.value), custom=i>=defaults.length, x={label:list[i].label,subject:sub.value,body:b.value.replace(name,'{name}')}; if(custom){var c=list.slice(defaults.length); c[i-defaults.length]=x; localStorage.setItem('my-card-email-templates',JSON.stringify(c)); list=all()} else {var c=JSON.parse(localStorage.getItem('my-card-email-templates')||'[]'); c.push({label:list[i].label+'（自分用）',subject:sub.value,body:b.value.replace(name,'{name}')}); localStorage.setItem('my-card-email-templates',JSON.stringify(c)); list=all()} render(); s.value=String(list.length-1); load(); alert('定型文を保存しました')};
+    p.querySelector('#et-add').onclick=function(){var label=prompt('定型文の名前'); if(!label)return; var subject=prompt('件名')||''; var body=prompt('本文（{name}で相手の名前に置換）')||''; var c=JSON.parse(localStorage.getItem('my-card-email-templates')||'[]'); c.push({label:label,subject:subject,body:body}); localStorage.setItem('my-card-email-templates',JSON.stringify(c)); list=all(); render(); s.value=String(list.length-1); load()};
+    p.querySelector('#et-cancel').onclick=function(){box.remove()}; p.querySelector('#et-open').onclick=function(){location.href='mailto:'+email+'?subject='+encodeURIComponent(sub.value)+'&body='+encodeURIComponent(b.value); box.remove()};
+  },true);
+})();
+</script></script>
