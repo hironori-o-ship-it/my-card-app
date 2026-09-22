@@ -1340,3 +1340,31 @@ function selectAiMode(honki) {
   showToast(honki ? '錦織教授（有料API・保護モード）を選択しました' : '縁堂教授（無料OCRモード）を選択しました');
 }
 </script></script>
+<script>
+(function(){
+  var templates = [
+    {label:'名刺交換のお礼',subject:'先日はありがとうございました',body:'{name}様\n\n先日はお時間をいただき、名刺交換の機会をありがとうございました。\n今後ともどうぞよろしくお願いいたします。'},
+    {label:'資料・情報の送付',subject:'資料をお送りします',body:'{name}様\n\n先日お話しした資料をお送りします。\nご確認いただき、ご不明点がございましたらお気軽にお知らせください。'},
+    {label:'面談・打合せの日程調整',subject:'お打合せの日程について',body:'{name}様\n\n先日はありがとうございました。\nお打合せの日程について、都合のよい日時をいくつかお知らせいただけますでしょうか。'},
+    {label:'見積・提案のご案内',subject:'お見積り・ご提案について',body:'{name}様\n\nご依頼の件について、見積りまたは提案内容を整理してご連絡いたします。\nどうぞよろしくお願いいたします。'},
+    {label:'後日のフォローアップ',subject:'その後のご状況について',body:'{name}様\n\n先日のお話のその後について、状況をお伺いしたくご連絡しました。\nお手すきの際にご返信いただけますと幸いです。'}
+  ];
+  document.addEventListener('click', function(e){
+    var link=e.target.closest('a[href^="mailto:"]'); if(!link) return;
+    e.preventDefault();
+    var email=link.getAttribute('href').replace(/^mailto:/,'');
+    var card=link.closest('#cards-mobile-list > div');
+    var name=card ? ((card.querySelector('.text-base.font-bold')||{}).textContent||'お相手').trim() : 'お相手';
+    var old=document.getElementById('email-template-picker'); if(old) old.remove();
+    var box=document.createElement('div'); box.id='email-template-picker'; box.style.cssText='position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.65);display:flex;align-items:center;justify-content:center;padding:16px';
+    var panel=document.createElement('div'); panel.style.cssText='background:white;width:100%;max-width:420px;border-radius:24px;padding:20px;box-shadow:0 20px 40px rgba(0,0,0,.25)';
+    panel.innerHTML='<h3 style="font-weight:700;color:#0f172a;margin:0 0 12px">メール定型文を選択</h3><select id="email-template-select" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:12px;font-size:14px">'+templates.map(function(x,i){return "<option value=\""+i+"\">"+x.label+"</option>"}).join('')+'</select><textarea id="email-template-preview" rows="7" style="width:100%;margin-top:12px;padding:10px;border:1px solid #cbd5e1;border-radius:12px;font-size:13px;line-height:1.6"></textarea><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id="email-template-cancel" type="button" style="padding:9px 14px;border-radius:12px;border:1px solid #cbd5e1;background:white">キャンセル</button><button id="email-template-open" type="button" style="padding:9px 14px;border-radius:12px;border:0;background:#4f46e5;color:white;font-weight:700">メールを作成</button></div>';
+    box.appendChild(panel); document.body.appendChild(box);
+    var select=panel.querySelector('#email-template-select'), preview=panel.querySelector('#email-template-preview');
+    function update(){preview.value=templates[Number(select.value)].body.replace('{name}',name);}
+    select.onchange=update; update();
+    panel.querySelector('#email-template-cancel').onclick=function(){box.remove()};
+    panel.querySelector('#email-template-open').onclick=function(){var x=templates[Number(select.value)]; window.location.href='mailto:'+email+'?subject='+encodeURIComponent(x.subject)+'&body='+encodeURIComponent(preview.value); box.remove()};
+  });
+})();
+</script></script>
