@@ -97,27 +97,27 @@
   <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 space-y-4">
 
     <!-- 上部タブメニュー -->
-    <div class="flex items-center justify-between gap-2 border-b border-slate-200 pb-2 overflow-x-auto custom-scrollbar">
-      <div class="flex items-center gap-1.5 shrink-0">
-        <button type="button" id="tab-btn-active" onclick="switchMainTab('active')" class="tab-btn active px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 text-white shadow-xs transition">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-2">
+      <div class="grid grid-cols-2 sm:flex items-center gap-1.5 min-w-0">
+        <button type="button" id="tab-btn-active" onclick="switchMainTab('active')" class="tab-btn active px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 text-white shadow-xs transition">
           <i class="fa-solid fa-address-book mr-1"></i>現役名刺 <span id="count-badge-active" class="bg-indigo-800 px-1.5 py-0.5 rounded-full text-[10px] ml-0.5">0</span>
         </button>
-        <button type="button" id="tab-btn-moved" onclick="switchMainTab('moved')" class="tab-btn px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 transition">
+        <button type="button" id="tab-btn-moved" onclick="switchMainTab('moved')" class="tab-btn px-2 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 transition">
           <i class="fa-solid fa-arrow-right-arrow-left mr-1 text-amber-500"></i>異動・転職 保留 <span id="count-badge-moved" class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded-full text-[10px] ml-0.5">0</span>
         </button>
-        <button type="button" id="tab-btn-trash" onclick="switchMainTab('trash')" class="tab-btn px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 transition">
+        <button type="button" id="tab-btn-trash" onclick="switchMainTab('trash')" class="tab-btn px-2 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 transition">
           <i class="fa-solid fa-trash mr-1 text-rose-500"></i>ゴミ箱 <span id="count-badge-trash" class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded-full text-[10px] ml-0.5">0</span>
         </button>
-        <button type="button" id="tab-btn-backup" onclick="switchMainTab('backup')" class="tab-btn px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 transition">
+        <button type="button" id="tab-btn-backup" onclick="switchMainTab('backup')" class="tab-btn px-2 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 transition">
           <i class="fa-solid fa-shield-halved mr-1 text-emerald-600"></i>バックアップ / 復元
         </button>
-        <button type="button" id="tab-btn-guide" onclick="switchMainTab('guide')" class="tab-btn px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 transition">
+        <button type="button" id="tab-btn-guide" onclick="switchMainTab('guide')" class="tab-btn px-2 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 transition">
           <i class="fa-solid fa-circle-question mr-1 text-sky-600"></i>使い方ガイド
         </button>
       </div>
 
       <!-- 全体よみ一括表示トグル -->
-      <button type="button" id="all-yomi-toggle-btn" onclick="toggleAllYomi()" class="text-xs px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium rounded-xl shrink-0 inline-flex items-center gap-1 transition shadow-2xs">
+      <button type="button" id="all-yomi-toggle-btn" onclick="toggleAllYomi()" class="justify-self-end sm:self-auto text-xs px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium rounded-xl shrink-0 inline-flex items-center gap-1 transition shadow-2xs">
         <i class="fa-solid fa-font text-indigo-500 text-[11px]"></i>
         <span id="all-yomi-label">よみ非表示中</span>
       </button>
