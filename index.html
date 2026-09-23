@@ -1450,3 +1450,13 @@ input.onchange=function(){var file=input.files&&input.files[0];if(!file)return;v
 document.getElementById('external-csv-save').onclick=async function(){if(!pending.length)return;var button=this;button.disabled=true;button.textContent='登録中...';try{var count=0;for(var i=0;i<pending.length;i+=100){var response=await fetch('/api/cards/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cards:pending.slice(i,i+100)})}),result=await response.json();if(!response.ok||!result.success)throw Error(result.error||'登録に失敗しました');count+=result.importedCount||0}modal.classList.add('hidden');document.body.classList.remove('overflow-hidden');pending=[];await loadCardsFromSpreadsheet();showToast(count+'件の名刺を取り込みました')}catch(e){showToast(e.message||'登録に失敗しました','error')}finally{button.disabled=false;button.textContent='この内容で追加'}};
 })();
 </script>
+
+<script>
+(function(){
+var source=document.getElementById('external-csv-open');if(!source||document.getElementById('external-csv-export'))return;
+var button=document.createElement('button');button.type='button';button.id='external-csv-export';button.className='mt-2 min-h-11 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800';button.innerHTML='<i class="fa-solid fa-file-export"></i><span>CSVを書き出す</span>';source.parentElement.after(button);
+var columns=[['ID','id'],['所有者','owner'],['状態','status'],['グループ','group'],['会社名','company'],['会社名よみ','company_kana'],['部署','department'],['役職','title'],['氏名','name'],['氏名よみ','name_kana'],['住所','address'],['TEL','phone'],['携帯','mobile'],['メールアドレス','email'],['HP','website'],['商談メモ','memo'],['名刺画像URL','fileUrl'],['アバターURL','avatarUrl'],['登録日時','createdAt']];
+function cell(value){var text=value==null?'':String(value);return '"'+text.replace(/"/g,'""')+'"'}
+button.onclick=function(){var cards=Array.isArray(allCards)?allCards:[];if(!cards.length){showToast('書き出す名刺データがありません','error');return}var lines=[columns.map(function(c){return cell(c[0])}).join(',')];cards.forEach(function(card){lines.push(columns.map(function(c){return cell(card[c[1]])}).join(','))});var csv='\uFEFF'+lines.join(String.fromCharCode(13,10));var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});var url=URL.createObjectURL(blob);var link=document.createElement('a');link.href=url;link.download='名刺データ_'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(link);link.click();link.remove();setTimeout(function(){URL.revokeObjectURL(url)},1000);showToast(cards.length+'件をCSVに書き出しました')};
+})();
+</script>
