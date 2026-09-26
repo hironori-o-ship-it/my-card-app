@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     const { ids, status } = req.body || {};
     const result = await updateStatus(auth, ids, status);
     if (!result.ok) return res.status(result.code).json({ success: false, error: result.error });
-    if (result.count) await writeAuditLog(auth.supabase, { email: auth.email, ip: auth.ip, action: 'change_status', targetIds: result.ids, detail: { status } });
+    if (result.count) await writeAuditLog(auth.supabase, { email: auth.email, tenant: auth.tenant, ip: auth.ip, action: 'change_status', targetIds: result.ids, detail: { status } });
     return res.status(200).json({ success: true, count: result.count });
   } catch (err) {
     console.error('Status API Error:', err);

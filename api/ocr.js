@@ -98,6 +98,7 @@ export default async function handler(req, res) {
         .insert([{
           id: cardId,
           owner: auth.email,
+          tenant: auth.tenant,
           status: '現役',
           group: '主要取引先',
           company: clip(c.company),
@@ -120,7 +121,7 @@ export default async function handler(req, res) {
     }
 
     if (insertedCards.length) {
-      await writeAuditLog(supabase, { email: auth.email, ip: auth.ip, action: 'register_by_photo', targetIds: insertedCards.map((c) => c.id) });
+      await writeAuditLog(supabase, { email: auth.email, tenant: auth.tenant, ip: auth.ip, action: 'register_by_photo', targetIds: insertedCards.map((c) => c.id) });
     }
     if (cards.length > 0 && insertedCards.length === 0) {
       return res.status(500).json({ success: false, error: '名刺の保存に失敗しました' });

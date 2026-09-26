@@ -16,13 +16,13 @@ export default async function handler(req, res) {
     const column = req.query && req.query.kind === 'avatar' ? 'avatar_url' : 'file_url';
     if (!id) return res.status(400).json({ success: false, error: 'IDが指定されていません' });
 
-    const { data, error } = await auth.supabase.from('cards').select(column).eq('id', id).maybeSingle();
+    const { data, error } = await auth.supabase.from('cards').select(column).eq('tenant', auth.tenant).eq('id', id).maybeSingle();
     if (error) throw error;
     const value = data ? String(data[column] || '') : '';
     const match = value.match(/^data:([^;,]+);base64,(.*)$/s);
     if (!match || !IMAGE_TYPES.includes(match[1].toLowerCase())) return res.status(404).json({ success: false, error: '画像がありません' });
 
-    await writeAuditLog(auth.supabase, { email: auth.email, ip: auth.ip, action: column === 'avatar_url' ? 'view_avatar' : 'view_card_image', targetIds: [id] });
+    await writeAuditLog(auth.supabase, { email: auth.email, tenant: auth.tenant, ip: auth.ip, action: column === 'avatar_url' ? 'view_avatar' : 'view_card_image', targetIds: [id] });
     res.setHeader('Content-Type', match[1].toLowerCase());
     res.setHeader('Cache-Control', 'private, max-age=600');
     res.setHeader('X-Content-Type-Options', 'nosniff');

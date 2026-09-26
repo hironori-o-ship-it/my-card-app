@@ -9,9 +9,9 @@ export default async function handler(req, res) {
     if (!auth) return;
 
     if (method === 'GET') {
-      const { data, error } = await auth.supabase.from('cards').select('*').order('created_at', { ascending: false });
+      const { data, error } = await auth.supabase.from('cards').select('*').eq('tenant', auth.tenant).order('created_at', { ascending: false });
       if (error) throw error;
-      await writeAuditLog(auth.supabase, { email: auth.email, ip: auth.ip, action: 'list_cards', detail: { count: data.length } });
+      await writeAuditLog(auth.supabase, { email: auth.email, tenant: auth.tenant, ip: auth.ip, action: 'list_cards', detail: { count: data.length } });
       return res.status(200).json({ success: true, cards: data.map(formatCard) });
     }
 
@@ -21,10 +21,10 @@ export default async function handler(req, res) {
       const update = { updated_at: new Date().toISOString() };
       EDIT_FIELDS.forEach((field) => { update[field] = clip(card[field], field === 'memo' ? 20000 : 500); });
       if (!update.name) return res.status(400).json({ success: false, error: '氏名を入力してください' });
-      const { data, error } = await auth.supabase.from('cards').update(update).eq('id', clip(card.id, 200)).select('id');
+      const { data, error } = await auth.supabase.from('cards').update(update).eq('tenant', auth.tenant).eq('id', clip(card.id, 200)).select('id');
       if (error) throw error;
       if (!data || data.length === 0) return res.status(404).json({ success: false, error: '更新対象の名刺が見つかりません' });
-      await writeAuditLog(auth.supabase, { email: auth.email, ip: auth.ip, action: 'update_card', targetIds: [data[0].id] });
+      await writeAuditLog(auth.supabase, { email: auth.email, tenant: auth.tenant, ip: auth.ip, action: 'update_card', targetIds: [data[0].id] });
       return res.status(200).json({ success: true });
     }
 
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
       const { ids, status } = req.body || {};
       const result = await updateStatus(auth, ids, status);
       if (!result.ok) return res.status(result.code).json({ success: false, error: result.error });
-      if (result.count) await writeAuditLog(auth.supabase, { email: auth.email, ip: auth.ip, action: 'change_status', targetIds: result.ids, detail: { status } });
+      if (result.count) await writeAuditLog(auth.supabase, { email: auth.email, tenant: auth.tenant, ip: auth.ip, action: 'change_status', targetIds: result.ids, detail: { status } });
       return res.status(200).json({ success: true, count: result.count });
     }
 

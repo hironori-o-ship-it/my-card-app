@@ -1,12 +1,12 @@
-import { checkCsrf, clearSessionCookies, clientIp, getSupabase, isAllowedEmail, requireUser, setSessionCookies, writeAuditLog } from '../lib/auth.js';
+import { checkCsrf, clearSessionCookies, clientIp, findMember, getSupabase, requireUser, setSessionCookies, writeAuditLog } from '../lib/auth.js';
 
-// GET: ログイン中の確認 / POST {action:'login'|'logout'}
+// GET: ログイン中の確認 / POST {action:'login'|'logout'|'change_password'}
 export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const auth = await requireUser(req, res);
       if (!auth) return;
-      return res.status(200).json({ success: true, email: auth.email });
+      return res.status(200).json({ success: true, email: auth.email, tenantName: auth.tenantName });
     }
 
     if (req.method !== 'POST') {
@@ -31,13 +31,36 @@ export default async function handler(req, res) {
         await new Promise((r) => setTimeout(r, 800)); // 総当たり対策で少し待たせる
         return res.status(401).json({ success: false, error: 'メールアドレスまたはパスワードが違います' });
       }
-      if (!isAllowedEmail(data.user.email)) {
+      const member = await findMember(supabase, data.user.email);
+      if (!member) {
         await writeAuditLog(supabase, { email, ip, action: 'login_denied' });
-        return res.status(403).json({ success: false, error: 'このアカウントには利用権限がありません' });
+        return res.status(403).json({ success: false, error: 'このアカウントには利用権限がありません。管理者に連絡してください' });
       }
       setSessionCookies(res, data.session);
-      await writeAuditLog(supabase, { email, ip, action: 'login' });
-      return res.status(200).json({ success: true, email });
+      await writeAuditLog(supabase, { email, tenant: member.tenant, ip, action: 'login' });
+      return res.status(200).json({ success: true, email, tenantName: member.tenantName });
+    }
+
+    if (body.action === 'change_password') {
+      const auth = await requireUser(req, res);
+      if (!auth) return;
+      const current = String(body.currentPassword || '').slice(0, 200);
+      const next = String(body.newPassword || '').slice(0, 200);
+      if (next.length < 10) return res.status(400).json({ success: false, error: '新しいパスワードは10文字以上にしてください' });
+      if (next === current) return res.status(400).json({ success: false, error: '今と違うパスワードにしてください' });
+      const check = await getSupabase().auth.signInWithPassword({ email: auth.email, password: current });
+      if (check.error) {
+        await writeAuditLog(supabase, { email: auth.email, tenant: auth.tenant, ip, action: 'change_password_failed' });
+        await new Promise((r) => setTimeout(r, 800));
+        return res.status(401).json({ success: false, error: '今のパスワードが違います' });
+      }
+      const { error } = await supabase.auth.admin.updateUserById(auth.id, { password: next });
+      if (error) {
+        console.error('Password update error:', error.message);
+        return res.status(400).json({ success: false, error: 'パスワードを変更できませんでした。別のパスワードでお試しください' });
+      }
+      await writeAuditLog(supabase, { email: auth.email, tenant: auth.tenant, ip, action: 'change_password' });
+      return res.status(200).json({ success: true });
     }
 
     if (body.action === 'logout') {

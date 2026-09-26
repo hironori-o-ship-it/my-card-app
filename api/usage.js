@@ -1,7 +1,6 @@
 import { requireUser } from '../lib/auth.js';
 
 const UNIT_PRICE_YEN = 0.02;
-const OWNER = process.env.SUPABASE_USAGE_OWNER || 'default-account';
 
 function monthKey() {
   const d = new Date();
@@ -13,6 +12,7 @@ export default async function handler(req, res) {
     const auth = await requireUser(req, res);
     if (!auth) return;
     const supabase = auth.supabase;
+    const OWNER = auth.tenant;
     const month = monthKey();
     if (req.method === 'GET') {
       const { data, error } = await supabase.from('ocr_usage').select('*').eq('owner', OWNER).maybeSingle();
