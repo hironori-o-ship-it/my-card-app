@@ -1,10 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import { requireUser, writeAuditLog } from '../lib/auth.js';
+import { clip } from '../lib/cards.js';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const geminiApiKey = process.env.GEMINI_API_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -13,19 +11,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { base64Image, fileName } = req.body;
-    if (!base64Image) {
+    const auth = await requireUser(req, res);
+    if (!auth) return;
+    const supabase = auth.supabase;
+
+    const { base64Image } = req.body || {};
+    if (!base64Image || typeof base64Image !== 'string') {
       return res.status(400).json({ success: false, error: '画像データが送信されていません' });
     }
 
-    let mimeType = 'image/jpeg';
-    let rawBase64 = base64Image;
-    if (base64Image.includes(',')) {
-      const parts = base64Image.split(',');
-      const match = parts[0].match(/:(.*?);/);
-      if (match) mimeType = match[1];
-      rawBase64 = parts[1];
+    const header = base64Image.match(/^data:([^;,]+);base64,/);
+    if (!header || !IMAGE_TYPES.includes(header[1].toLowerCase())) {
+      return res.status(400).json({ success: false, error: '画像の形式に対応していません（JPEG / PNG / WebP）' });
     }
+    const mimeType = header[1].toLowerCase();
+    const rawBase64 = base64Image.slice(header[0].length);
 
     const systemInstruction = "日本のビジネス名刺画像を解析し、JSONスキーマに従って精密に出力してください。複数枚並べて撮影されている場合は配列の中に全てのカードを抽出してください。会社名と氏名のひらがな（company_kana, name_kana）を推測付与し、市外局番と携帯番号を分別してください。未記載は空文字列にしてください。";
 
@@ -77,7 +77,8 @@ export default async function handler(req, res) {
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
-      throw new Error(`Gemini API Error (${geminiRes.status}): ${errText}`);
+      console.error(`Gemini API Error (${geminiRes.status}): ${errText}`);
+      return res.status(502).json({ success: false, error: 'AIの読み取りに失敗しました。時間をおいて再度お試しください' });
     }
 
     const geminiJson = await geminiRes.json();
@@ -90,34 +91,45 @@ export default async function handler(req, res) {
 
     for (let i = 0; i < cards.length; i++) {
       const c = cards[i];
-      const cardId = `card_${timestamp}_${Math.floor(Math.random() * 1000)}`;
+      const cardId = `card_${timestamp}_${i}_${Math.random().toString(36).slice(2, 8)}`;
 
       const { data, error } = await supabase
         .from('cards')
         .insert([{
           id: cardId,
-          owner: 'Webユーザー',
+          owner: auth.email,
           status: '現役',
           group: '主要取引先',
-          company: c.company || '',
-          company_kana: c.company_kana || '',
-          department: c.department || '',
-          title: c.title || '',
-          name: c.name || '',
-          name_kana: c.name_kana || '',
-          address: c.address || '',
-          phone: c.phone || '',
-          mobile: c.mobile || '',
-          email: c.email || '',
-          website: c.website || '',
+          company: clip(c.company),
+          company_kana: clip(c.company_kana),
+          department: clip(c.department),
+          title: clip(c.title),
+          name: clip(c.name),
+          name_kana: clip(c.name_kana),
+          address: clip(c.address),
+          phone: clip(c.phone),
+          mobile: clip(c.mobile),
+          email: clip(c.email),
+          website: clip(c.website),
           file_url: base64Image
         }])
-        .select();
+        .select('id, company, name');
 
       if (error) console.error('DB Insert Error:', error);
       else if (data) insertedCards.push(data[0]);
     }
 
+    if (insertedCards.length) {
+      await writeAuditLog(supabase, { email: auth.email, ip: auth.ip, action: 'register_by_photo', targetIds: insertedCards.map((c) => c.id) });
+    }
+    if (cards.length > 0 && insertedCards.length === 0) {
+      return res.status(500).json({ success: false, error: '名刺の保存に失敗しました' });
+    }
+    if (cards.length === 0) {
+      return res.status(200).json({ success: false, error: '名刺を読み取れませんでした。明るい場所で、名刺全体が写るように撮り直してください' });
+    }
+
+    // 画像本体は返さない（一覧は /api/cards、画像は /api/cards/image から取る）
     return res.status(200).json({
       success: true,
       cards: insertedCards
@@ -125,6 +137,6 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('OCR API Exception:', err);
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: '登録処理に失敗しました' });
   }
 }

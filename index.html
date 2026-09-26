@@ -89,6 +89,10 @@
           📸 まとめ撮り(4枚)
         </button>
         <input type="file" id="camera-batch-input" accept="image/*" multiple class="hidden" onchange="handleBatchImagesSelected(event)">
+        <button type="button" id="logout-button" onclick="logout()" title="ログアウト" class="hidden inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-2.5 py-1.5 rounded-xl border border-slate-700 transition">
+          <i class="fa-solid fa-right-from-bracket text-slate-400"></i>
+          <span id="login-user-label" class="hidden sm:inline max-w-[160px] truncate"></span>
+        </button>
       </div>
     </div>
   </header>
@@ -250,7 +254,12 @@
     <div id="guide-tab" class="tab-content hidden space-y-4">
       <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4 text-xs leading-relaxed text-slate-700">
         <h3 class="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">らくらく名刺管理 活用ガイド</h3>
-        
+
+        <div class="space-y-1.5">
+          <div class="font-bold text-slate-900 text-xs">🔒 ログインとログアウト</div>
+          <p class="text-slate-600">名刺は個人情報のため、会社のメールアドレスでログインした方だけが使えます。7日間使わないと自動でログアウトします。共用のパソコンでは、使い終わったら右上の <i class="fa-solid fa-right-from-bracket"></i> ボタンでログアウトしてください。誰がいつ見た・直したかは記録されています。</p>
+        </div>
+
         <div class="space-y-1.5">
           <div class="font-bold text-slate-900 text-xs">🌐 会社公式HP ＆ 🔍 会社名Google検索</div>
           <p class="text-slate-600">名刺にURLがある場合は青い「HP」ボタンが表示され公式ページが開きます。名刺にURLが未記載の場合はグレーの「検索」ボタンが表示され、会社名の最新ニュースや事業内容をワンタップで確認できます。</p>
@@ -416,6 +425,30 @@
     </div>
   </div>
 
+  <!-- ログイン画面 (#login-overlay) -->
+  <div id="login-overlay" class="hidden fixed inset-0 z-[80] bg-slate-100 flex items-center justify-center p-4">
+    <form id="login-form" onsubmit="submitLogin(event)" class="bg-white w-full max-w-sm rounded-3xl shadow-xl border border-slate-200 p-6 space-y-4">
+      <div class="flex items-center gap-2">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shrink-0"><i class="fa-solid fa-address-card text-lg"></i></div>
+        <div>
+          <div class="font-bold text-slate-900">らくらく名刺管理</div>
+          <div class="text-[11px] text-slate-500">社内の方専用です。ログインしてください。</div>
+        </div>
+      </div>
+      <div>
+        <label for="login-email" class="block text-xs font-semibold text-slate-700 mb-1">メールアドレス</label>
+        <input type="email" id="login-email" autocomplete="username" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      </div>
+      <div>
+        <label for="login-password" class="block text-xs font-semibold text-slate-700 mb-1">パスワード</label>
+        <input type="password" id="login-password" autocomplete="current-password" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      </div>
+      <p id="login-error" class="hidden text-xs font-semibold text-rose-600"></p>
+      <button type="submit" id="login-submit" class="w-full py-2.5 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-xs transition active:scale-95">ログイン</button>
+      <p class="text-[11px] text-slate-400 leading-relaxed">アカウントやパスワードが分からないときは、管理者に連絡してください。</p>
+    </form>
+  </div>
+
   <!-- ローディング表示 (#loading-overlay) -->
   <div id="loading-overlay" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center">
     <div class="bg-white px-5 py-4 rounded-2xl shadow-xl flex items-center gap-3 text-xs font-bold text-slate-800">
@@ -480,64 +513,108 @@
       loadCardsFromSpreadsheet();
     });
 
+    // サーバーとの通信（ログイン切れなら自動でログイン画面を出す）
+    function apiFetch(url, options) {
+      options = options || {};
+      options.credentials = 'same-origin';
+      options.headers = Object.assign({ 'X-Requested-With': 'my-card-app' }, options.headers || {});
+      return fetch(url, options).then(function(response) {
+        return response.json().catch(function() {
+          return { success: false, error: '通信エラーが発生しました（' + response.status + '）' };
+        }).then(function(body) {
+          if (response.status === 401 || (response.status === 403 && body && body.needLogin)) {
+            hideLoading();
+            showLoginScreen(body && body.error && response.status === 403 ? body.error : '');
+            var e = new Error((body && body.error) || 'ログインが必要です');
+            e.needLogin = true;
+            throw e;
+          }
+          return body;
+        });
+      });
+    }
+
+    function postJson(url, data, method) {
+      return apiFetch(url, { method: method || 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    }
+
+    function showLoginScreen(message) {
+      allCards = [];
+      selectedIds.clear();
+      applyFilters();
+      var overlay = document.getElementById('login-overlay');
+      var err = document.getElementById('login-error');
+      if (err) { err.textContent = message || ''; err.classList.toggle('hidden', !message); }
+      document.getElementById('logout-button').classList.add('hidden');
+      if (overlay) overlay.classList.remove('hidden');
+      var email = document.getElementById('login-email');
+      if (email && !email.value) email.focus();
+    }
+
+    function showLoggedInUser(email) {
+      var label = document.getElementById('login-user-label');
+      if (label) label.textContent = email || '';
+      document.getElementById('logout-button').classList.remove('hidden');
+      document.getElementById('login-overlay').classList.add('hidden');
+    }
+
+    function submitLogin(event) {
+      event.preventDefault();
+      var button = document.getElementById('login-submit');
+      var err = document.getElementById('login-error');
+      var passwordEl = document.getElementById('login-password');
+      button.disabled = true;
+      button.textContent = '確認中...';
+      err.classList.add('hidden');
+      postJson('/api/auth', { action: 'login', email: document.getElementById('login-email').value, password: passwordEl.value })
+        .then(function(res) {
+          if (res && res.success) {
+            passwordEl.value = '';
+            showLoggedInUser(res.email);
+            loadCardsFromSpreadsheet();
+          } else {
+            err.textContent = (res && res.error) || 'ログインに失敗しました';
+            err.classList.remove('hidden');
+          }
+        })
+        .catch(function() {
+          err.textContent = '通信エラーが発生しました。電波の良い場所で再度お試しください';
+          err.classList.remove('hidden');
+        })
+        .then(function() {
+          button.disabled = false;
+          button.textContent = 'ログイン';
+        });
+    }
+
+    function logout() {
+      if (!confirm('ログアウトしますか？')) return;
+      postJson('/api/auth', { action: 'logout' }).catch(function() {}).then(function() {
+        document.getElementById('login-email').value = '';
+        showLoginScreen('');
+      });
+    }
+
     // 名刺一覧データの取得 (fetch API)
     function loadCardsFromSpreadsheet() {
       showLoading('データを読み込んでいます...');
-      fetch('/api/cards')
-        .then(function(response) {
-          if (!response.ok) throw new Error('HTTPエラー: ' + response.status);
-          return response.json();
-        })
+      return apiFetch('/api/cards')
         .then(function(res) {
           hideLoading();
           if (res.success) {
             allCards = res.cards || [];
             if (res.spreadsheetUrl) setHeaderSheetUrl(res.spreadsheetUrl);
             applyFilters();
+            if (document.getElementById('logout-button').classList.contains('hidden')) {
+              apiFetch('/api/auth').then(function(me) { if (me && me.success) showLoggedInUser(me.email); }).catch(function() {});
+            }
           } else {
             showToast(res.error || 'データの取得に失敗しました', 'error');
           }
         })
         .catch(function(err) {
-          // 開発中・サーバー未起動時のフォールバック用デモデータ
           hideLoading();
-          allCards = [
-            {
-              id: 'demo_1',
-              name: '佐藤 健太',
-              name_kana: 'さとう けんた',
-              company: '株式会社オダシマ技術研究所',
-              company_kana: 'かぶしきがいしゃおだしまぎじゅつけんきゅうしょ',
-              title: '営業部長',
-              department: 'ソリューション営業部',
-              address: '岩手県北上市本通り2丁目',
-              phone: '0197-65-1111',
-              mobile: '090-1234-5678',
-              email: 'kenta.sato@example.com',
-              website: 'https://odashima.co.jp',
-              group: '主要取引先',
-              status: '現役',
-              memo: '【2026/09/11】新提案書を提出。次回10月に再訪予定。\n【2026/07/20】部長交代のご挨拶。\n【2026/04/15】展示会にて名刺交換。ゴルフ好き。'
-            },
-            {
-              id: 'demo_2',
-              name: '鈴木 美咲',
-              name_kana: 'すずき みさき',
-              company: '東北建機開発 株式会社',
-              company_kana: 'とうほくけんきかいはつ',
-              title: '課長代理',
-              department: '調達購買部',
-              address: '宮城県仙台市青葉区一番町',
-              phone: '022-222-3333',
-              mobile: '080-9876-5432',
-              email: 'misaki.s@example.com',
-              website: '',
-              group: '見込み客',
-              status: '現役',
-              memo: '【2026/08/05】見積依頼を受領。担当者変更なし。'
-            }
-          ];
-          applyFilters();
+          if (!err.needLogin) showToast('データを読み込めませんでした。通信状態を確認して「同期」を押してください', 'error');
         });
     }
 
@@ -558,7 +635,7 @@
       if (isMobile) {
         var historyHtml = '';
         if (historyLines.length > 0) {
-          historyHtml = '<div id="memo-full-mobile-' + cardId + '" data-count="' + historyLines.length + '" class="hidden pt-2 mt-2 border-t border-amber-200/80 space-y-1.5 text-[10px] text-amber-800 leading-relaxed break-words">' +
+          historyHtml = '<div id="memo-full-mobile-' + escapeHtml(cardId) + '" data-count="' + historyLines.length + '" class="hidden pt-2 mt-2 border-t border-amber-200/80 space-y-1.5 text-[10px] text-amber-800 leading-relaxed break-words">' +
             historyLines.map(function(line) {
               return '<div class="pl-1.5 border-l-2 border-amber-400 bg-white/60 p-1 rounded-r-md">' + escapeHtml(line) + '</div>';
             }).join('') +
@@ -567,7 +644,7 @@
 
         var toggleBtnHtml = '';
         if (historyLines.length > 0) {
-          toggleBtnHtml = '<button type="button" id="memo-toggle-btn-mobile-' + cardId + '" onclick="toggleMemoExpand(\'' + cardId + '\')" class="text-[10px] text-amber-800 hover:text-amber-950 font-bold ml-auto shrink-0 cursor-pointer inline-flex items-center gap-1 bg-amber-100/90 active:bg-amber-200 px-2 py-0.5 rounded-lg border border-amber-300/70 transition">' +
+          toggleBtnHtml = '<button type="button" id="memo-toggle-btn-mobile-' + escapeHtml(cardId) + '" onclick="toggleMemoExpand(' + jsArg(cardId) + ')" class="text-[10px] text-amber-800 hover:text-amber-950 font-bold ml-auto shrink-0 cursor-pointer inline-flex items-center gap-1 bg-amber-100/90 active:bg-amber-200 px-2 py-0.5 rounded-lg border border-amber-300/70 transition">' +
             '<i class="fa-solid fa-chevron-down text-[8px]"></i> 過去 (' + historyLines.length + '件)' +
             '</button>';
         }
@@ -584,7 +661,7 @@
         // PCテーブル表示用
         var pcHistoryHtml = '';
         if (historyLines.length > 0) {
-          pcHistoryHtml = '<div id="memo-full-' + cardId + '" data-count="' + historyLines.length + '" class="hidden pt-1.5 mt-1 border-t border-amber-200/80 space-y-1 text-[10px] text-amber-900 leading-tight">' +
+          pcHistoryHtml = '<div id="memo-full-' + escapeHtml(cardId) + '" data-count="' + historyLines.length + '" class="hidden pt-1.5 mt-1 border-t border-amber-200/80 space-y-1 text-[10px] text-amber-900 leading-tight">' +
             historyLines.map(function(line) {
               return '<div class="pl-1.5 border-l-2 border-amber-400 truncate bg-white/70 p-0.5 rounded-r" title="' + escapeHtml(line) + '">' + escapeHtml(line) + '</div>';
             }).join('') +
@@ -593,7 +670,7 @@
 
         var pcToggleBtnHtml = '';
         if (historyLines.length > 0) {
-          pcToggleBtnHtml = '<button type="button" id="memo-toggle-btn-' + cardId + '" onclick="toggleMemoExpand(\'' + cardId + '\')" class="text-[9px] text-amber-800 hover:text-amber-950 font-bold ml-auto shrink-0 cursor-pointer inline-flex items-center gap-0.5 bg-amber-100/80 hover:bg-amber-200 px-1.5 py-0.2 rounded border border-amber-300/60 transition">' +
+          pcToggleBtnHtml = '<button type="button" id="memo-toggle-btn-' + escapeHtml(cardId) + '" onclick="toggleMemoExpand(' + jsArg(cardId) + ')" class="text-[9px] text-amber-800 hover:text-amber-950 font-bold ml-auto shrink-0 cursor-pointer inline-flex items-center gap-0.5 bg-amber-100/80 hover:bg-amber-200 px-1.5 py-0.2 rounded border border-amber-300/60 transition">' +
             '<i class="fa-solid fa-chevron-down text-[8px]"></i> 過去' + historyLines.length + '件' +
             '</button>';
         }
@@ -736,7 +813,7 @@
         // PC行
         tableHtml += '<tr id="card-row-' + escapeHtml(c.id) + '" class="hover:bg-slate-50/80 transition-colors ' + (isChecked ? 'bg-indigo-50/40' : '') + '">' +
           '<td class="py-3 pl-3 pr-2 text-center">' +
-            '<input type="checkbox" onchange="toggleSelectCard(\'' + c.id + '\', this.checked)" ' + (isChecked ? 'checked' : '') + ' class="rounded text-indigo-600 focus:ring-0">' +
+            '<input type="checkbox" onchange="toggleSelectCard(' + jsArg(c.id) + ', this.checked)" ' + (isChecked ? 'checked' : '') + ' class="rounded text-indigo-600 focus:ring-0">' +
           '</td>' +
           '<td class="py-3 px-2 font-medium text-slate-600">' +
             '<span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-lg border border-slate-200 text-[11px]">' + escapeHtml(c.group || '未分類') + '</span>' +
@@ -775,10 +852,10 @@
           '</td>' +
           '<td class="py-3 px-3 text-center">' +
             '<div class="inline-flex items-center gap-1">' +
-              (c.fileUrl ? '<button type="button" onclick="openPhotoPreview(\'' + escapeHtml(c.fileUrl) + '\', \'' + escapeHtml(c.name) + '\')" title="原本写真を見る" class="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition"><i class="fa-regular fa-image"></i></button>' : '') +
-              '<button type="button" onclick="openEditModal(\'' + c.id + '\')" title="名刺を編集" class="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition"><i class="fa-solid fa-pen-to-square"></i></button>' +
-              '<button type="button" onclick="moveSingleCard(\'' + c.id + '\', \'異動・転職 保留\')" title="保留へ移動" class="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>' +
-              '<button type="button" onclick="moveSingleCard(\'' + c.id + '\', \'ゴミ箱\')" title="ゴミ箱へ移動" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"><i class="fa-solid fa-trash"></i></button>' +
+              (c.fileUrl ? '<button type="button" onclick="openPhotoPreview(' + jsArg(c.id) + ')" title="原本写真を見る" class="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition"><i class="fa-regular fa-image"></i></button>' : '') +
+              '<button type="button" onclick="openEditModal(' + jsArg(c.id) + ')" title="名刺を編集" class="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition"><i class="fa-solid fa-pen-to-square"></i></button>' +
+              '<button type="button" onclick="moveSingleCard(' + jsArg(c.id) + ', \'異動・転職 保留\')" title="保留へ移動" class="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>' +
+              '<button type="button" onclick="moveSingleCard(' + jsArg(c.id) + ', \'ゴミ箱\')" title="ゴミ箱へ移動" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"><i class="fa-solid fa-trash"></i></button>' +
             '</div>' +
           '</td>' +
         '</tr>';
@@ -787,13 +864,13 @@
         mobileHtml += '<div class="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-2xs space-y-2.5">' +
           '<div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">' +
             '<div class="flex items-center gap-2">' +
-              '<input type="checkbox" onchange="toggleSelectCard(\'' + c.id + '\', this.checked)" ' + (isChecked ? 'checked' : '') + ' class="rounded text-indigo-600 focus:ring-0">' +
+              '<input type="checkbox" onchange="toggleSelectCard(' + jsArg(c.id) + ', this.checked)" ' + (isChecked ? 'checked' : '') + ' class="rounded text-indigo-600 focus:ring-0">' +
               '<span class="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-lg border border-slate-200">' + escapeHtml(c.group || '未分類') + '</span>' +
             '</div>' +
             '<div class="flex items-center gap-1">' +
-              (c.fileUrl ? '<button type="button" onclick="openPhotoPreview(\'' + escapeHtml(c.fileUrl) + '\', \'' + escapeHtml(c.name) + '\')" class="text-xs px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-medium inline-flex items-center gap-1 transition"><i class="fa-regular fa-image"></i> 原本</button>' : '') +
-              '<button type="button" onclick="toggleSingleYomi(\'' + c.id + '\')" class="text-xs px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-medium transition">' + (isYomi ? 'よみ隠す' : 'よみ') + '</button>' +
-              '<button type="button" onclick="openCardActionSheet(\'' + c.id + '\', \'' + escapeHtml(c.name) + '\')" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
+              (c.fileUrl ? '<button type="button" onclick="openPhotoPreview(' + jsArg(c.id) + ')" class="text-xs px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-medium inline-flex items-center gap-1 transition"><i class="fa-regular fa-image"></i> 原本</button>' : '') +
+              '<button type="button" onclick="toggleSingleYomi(' + jsArg(c.id) + ')" class="text-xs px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-medium transition">' + (isYomi ? 'よみ隠す' : 'よみ') + '</button>' +
+              '<button type="button" onclick="openCardActionSheet(' + jsArg(c.id) + ')" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"><i class="fa-solid fa-ellipsis-vertical"></i></button>' +
             '</div>' +
           '</div>' +
 
@@ -821,7 +898,7 @@
           '<div class="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-slate-100">' +
             (c.phone || c.mobile ? '<a href="tel:' + escapeHtml(c.mobile || c.phone) + '" class="flex items-center justify-center gap-1 py-1.5 bg-emerald-50 active:bg-emerald-100 text-emerald-700 rounded-xl font-bold text-xs border border-emerald-200 transition"><i class="fa-solid fa-phone"></i> 発信</a>' : '<div class="py-1.5 bg-slate-50 text-slate-400 text-center rounded-xl text-xs">-</div>') +
             (c.email ? '<a href="mailto:' + escapeHtml(c.email) + '" class="flex items-center justify-center gap-1 py-1.5 bg-indigo-50 active:bg-indigo-100 text-indigo-700 rounded-xl font-bold text-xs border border-indigo-200 transition"><i class="fa-solid fa-envelope"></i> メール</a>' : '<div class="py-1.5 bg-slate-50 text-slate-400 text-center rounded-xl text-xs">-</div>') +
-            '<button type="button" onclick="openEditModal(\'' + c.id + '\')" class="flex items-center justify-center gap-1 py-1.5 bg-slate-100 active:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs border border-slate-200 transition"><i class="fa-solid fa-pen-to-square"></i> 編集</button>' +
+            '<button type="button" onclick="openEditModal(' + jsArg(c.id) + ')" class="flex items-center justify-center gap-1 py-1.5 bg-slate-100 active:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs border border-slate-200 transition"><i class="fa-solid fa-pen-to-square"></i> 編集</button>' +
           '</div>' +
         '</div>';
       });
@@ -848,7 +925,7 @@
             '<div class="text-sm font-bold text-slate-800 truncate">' + escapeHtml(c.name || '氏名未設定') + ' <span class="text-xs font-normal text-slate-500">(' + escapeHtml(c.title || '役職なし') + ')</span></div>' +
           '</div>' +
           '<div class="shrink-0">' +
-            '<button type="button" onclick="moveSingleCard(\'' + c.id + '\', \'現役\')" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl border border-indigo-200 text-xs inline-flex items-center gap-1 transition">' +
+            '<button type="button" onclick="moveSingleCard(' + jsArg(c.id) + ', \'現役\')" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl border border-indigo-200 text-xs inline-flex items-center gap-1 transition">' +
               '<i class="fa-solid fa-rotate-left text-xs"></i> <span>現役復帰</span>' +
             '</button>' +
           '</div>' +
@@ -945,12 +1022,7 @@
     // ステータス更新処理 (fetch API)
     function executeStatusUpdate(ids, newStatus, onSuccess, successMessage) {
       showLoading('状態を更新中...');
-      fetch('/api/cards/status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: ids, status: newStatus })
-      })
-      .then(function(res) { return res.json(); })
+      postJson('/api/cards/status', { ids: ids, status: newStatus })
       .then(function(res) {
         hideLoading();
         if (res && res.success) {
@@ -967,14 +1039,7 @@
       })
       .catch(function(err) {
         hideLoading();
-        // 開発中のローカル反映
-        ids.forEach(function(id) {
-          var c = allCards.find(function(item) { return item.id === id; });
-          if (c) c.status = newStatus;
-        });
-        applyFilters();
-        if (onSuccess) onSuccess();
-        if (successMessage) showToast(successMessage);
+        if (!err.needLogin) showToast('通信エラーのため変更できませんでした。もう一度お試しください', 'error');
       });
     }
 
@@ -1042,12 +1107,7 @@
       };
 
       showLoading('保存しています...');
-      fetch('/api/cards', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated)
-      })
-      .then(function(res) { return res.json(); })
+      postJson('/api/cards', updated, 'PUT')
       .then(function(res) {
         hideLoading();
         if (res && res.success) {
@@ -1061,27 +1121,50 @@
       })
       .catch(function(err) {
         hideLoading();
-        Object.assign(c, updated);
-        closeEditModal();
-        applyFilters();
-        showToast('名刺情報を保存しました (ローカル保存)');
+        // 入力内容は画面に残したまま（閉じない）にして、再保存できるようにする
+        if (!err.needLogin) showToast('通信エラーのため保存できませんでした。もう一度「修正を保存する」を押してください', 'error');
       });
     }
 
     // 名刺画像アップロード＆OCR解析 (fetch API)
+    // スマホの写真は大きいので、送る前に長辺2000pxのJPEGに縮める（送信上限4.5MB対策・一覧の軽量化）
+    function resizeImageFile(file) {
+      return new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onerror = function() { reject(new Error('画像を読み込めませんでした')); };
+        reader.onload = function(evt) {
+          var img = new Image();
+          img.onerror = function() { reject(new Error('この画像形式は読み込めません。JPEGかPNGで撮影してください')); };
+          img.onload = function() {
+            var maxSide = 2000;
+            var scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+            var canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
+          };
+          img.src = evt.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function registerCardImage(file) {
+      return resizeImageFile(file).then(function(base64) {
+        return postJson('/api/cards/ocr', { base64Image: base64 });
+      });
+    }
+
     function handleImageSelected(e) {
       var file = e.target.files[0];
+      e.target.value = '';
       if (!file) return;
-      var reader = new FileReader();
-      reader.onload = function(evt) {
-        var base64 = evt.target.result;
-        showLoading('AIが名刺を高精度スキャン中...');
-        fetch('/api/cards/ocr', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ base64Image: base64, fileName: file.name })
-        })
-        .then(function(res) { return res.json(); })
+      showLoading('AIが名刺を高精度スキャン中...');
+      registerCardImage(file)
         .then(function(res) {
           hideLoading();
           if (res.success) {
@@ -1094,38 +1177,50 @@
         })
         .catch(function(err) {
           hideLoading();
-          showToast('通信エラーが発生しました', 'error');
+          if (!err.needLogin) showToast(err.message && err.message.indexOf('画像') > -1 ? err.message : '通信エラーが発生しました', 'error');
         });
-      };
-      reader.readAsDataURL(file);
-      e.target.value = '';
     }
 
     function handleBatchImagesSelected(e) {
       var files = Array.from(e.target.files || []).slice(0, 4);
+      e.target.value = '';
       if (!files.length) return;
       var index = 0;
-      var next = function() {
-        var file = files[index++];
-        var reader = new FileReader();
-        reader.onload = function(evt) {
-          fetch('/api/cards/ocr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ base64Image: evt.target.result, fileName: file.name }) })
-            .then(function(res) { return res.json(); })
-            .then(function(res) { if (res.success && res.cards && res.cards[0]) showRegistrationNotice(res.cards[0]); if (index < files.length) next(); else { hideLoading(); loadCardsFromSpreadsheet(); showToast(files.length + '枚の名刺を登録しました！'); } })
-            .catch(function() { hideLoading(); showToast('まとめ撮りの一部で通信エラーが発生しました', 'error'); });
-        };
-        reader.readAsDataURL(file);
+      var okCount = 0;
+      var failCount = 0;
+      var finish = function() {
+        hideLoading();
+        loadCardsFromSpreadsheet();
+        if (failCount === 0) showToast(okCount + '枚の名刺を登録しました！');
+        else showToast(okCount + '枚を登録、' + failCount + '枚は読み取れませんでした。撮り直してください', 'error');
       };
-      showLoading(files.length + '枚を順番に解析中...');
+      var next = function() {
+        if (index >= files.length) { finish(); return; }
+        var file = files[index++];
+        showLoading(files.length + '枚を順番に解析中...（' + index + '/' + files.length + '）');
+        registerCardImage(file)
+          .then(function(res) {
+            if (res.success) { okCount++; if (res.cards && res.cards[0]) showRegistrationNotice(res.cards[0]); }
+            else failCount++;
+            next();
+          })
+          .catch(function(err) {
+            if (err.needLogin) return;
+            failCount++;
+            next();
+          });
+      };
       next();
-      e.target.value = '';
     }
 
-    function openPhotoPreview(url, name) {
+    function openPhotoPreview(cardId) {
+      var card = allCards.find(function(c) { return c.id === cardId; }) || {};
+      var url = card.fileUrl;
+      var name = card.name;
       var modal = document.getElementById('photo-preview-modal');
       var img = document.getElementById('preview-modal-img');
       var title = document.getElementById('preview-modal-title');
-      if (modal && img) {
+      if (modal && img && url) {
         img.src = url;
         if (title) title.textContent = (name ? (name + ' 様の') : '') + '名刺原本プレビュー';
         modal.classList.remove('hidden');
@@ -1137,7 +1232,8 @@
       if (modal) modal.classList.add('hidden');
     }
 
-    function openCardActionSheet(cardId, name) {
+    function openCardActionSheet(cardId) {
+      var name = (allCards.find(function(c) { return c.id === cardId; }) || {}).name;
       var sheet = document.getElementById('card-action-sheet');
       var title = document.getElementById('action-sheet-title');
       var moveBtn = document.getElementById('action-sheet-move-btn');
@@ -1256,6 +1352,11 @@
         toast.classList.remove('opacity-100', 'translate-y-0');
         lastActionUndoCallback = null;
       }, 5000);
+    }
+
+    // onclick="..." の中に値を安全に埋め込む（どんな文字が入っていてもJSの文字列として扱われる）
+    function jsArg(value) {
+      return escapeHtml(JSON.stringify(String(value == null ? '' : value)));
     }
 
     function escapeHtml(str) {
@@ -1434,7 +1535,7 @@ var input=document.getElementById('external-csv-input'), modal=document.getEleme
 document.getElementById('external-csv-open').onclick=function(){input.value='';input.click()};
 document.getElementById('external-csv-cancel').onclick=function(){modal.classList.add('hidden');document.body.classList.remove('overflow-hidden');pending=[]};
 input.onchange=function(){var file=input.files&&input.files[0];if(!file)return;var reader=new FileReader();reader.onload=function(){try{var bytes=new Uint8Array(reader.result), text=new TextDecoder('utf-8').decode(bytes);if((text.match(/\uFFFD/g)||[]).length>2)text=new TextDecoder('shift_jis').decode(bytes);var rows=parse(text.replace(/^\uFEFF/,''));if(rows.length<2)throw Error('CSVの見出しとデータを確認できません');var map=rows[0].map(function(h){var n=norm(h),key=Object.keys(aliases).find(function(k){return norm(k)===n});return key?aliases[key]:''});if(!map.some(Boolean))throw Error('アプリで読み取れる見出しがありません');pending=rows.slice(1).filter(function(r){return r.some(function(v){return String(v||'').trim()})}).map(function(r){var card={};Object.keys(fields).forEach(function(k){card[k]=''});map.forEach(function(k,i){if(k&&r[i])card[k]=String(r[i]).trim().slice(0,5000)});return card});if(!pending.length)throw Error('取り込む名刺データがありません');document.getElementById('external-csv-file').textContent=file.name;document.getElementById('external-csv-count').textContent=pending.length+'件を新規追加します';document.getElementById('external-csv-fields').textContent='読み取る項目：'+Array.from(new Set(map.filter(Boolean))).map(function(k){return fields[k]}).join('、');document.getElementById('external-csv-sample').textContent='先頭4件：\n'+pending.slice(0,4).map(function(c){return [c.name,c.company].filter(Boolean).join(' / ')||'氏名・会社名なし'}).join('\n');modal.classList.remove('hidden');document.body.classList.add('overflow-hidden')}catch(e){showToast(e.message||'CSVを読み取れませんでした','error')}};reader.onerror=function(){showToast('CSVファイルを読み込めませんでした','error')};reader.readAsArrayBuffer(file)};
-document.getElementById('external-csv-save').onclick=async function(){if(!pending.length)return;var button=this;button.disabled=true;button.textContent='登録中...';try{var count=0;for(var i=0;i<pending.length;i+=100){var response=await fetch('/api/cards/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cards:pending.slice(i,i+100)})}),result=await response.json();if(!response.ok||!result.success)throw Error(result.error||'登録に失敗しました');count+=result.importedCount||0}modal.classList.add('hidden');document.body.classList.remove('overflow-hidden');pending=[];await loadCardsFromSpreadsheet();showToast(count+'件の名刺を取り込みました')}catch(e){showToast(e.message||'登録に失敗しました','error')}finally{button.disabled=false;button.textContent='この内容で追加'}};
+document.getElementById('external-csv-save').onclick=async function(){if(!pending.length)return;var button=this;button.disabled=true;button.textContent='登録中...';try{var count=0;for(var i=0;i<pending.length;i+=100){var response=await fetch('/api/cards/import',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Requested-With':'my-card-app'},body:JSON.stringify({cards:pending.slice(i,i+100)})}),result=await response.json();if(!response.ok||!result.success)throw Error(result.error||'登録に失敗しました');count+=result.importedCount||0}modal.classList.add('hidden');document.body.classList.remove('overflow-hidden');pending=[];await loadCardsFromSpreadsheet();showToast(count+'件の名刺を取り込みました')}catch(e){showToast(e.message||'登録に失敗しました','error')}finally{button.disabled=false;button.textContent='この内容で追加'}};
 })();
 </script>
 
@@ -1447,7 +1548,7 @@ function norm(s){return String(s||'').trim().toLowerCase().replace(/[\s　_-]+/g
 var input=document.getElementById('external-csv-input'),modal=document.getElementById('external-csv-modal');
 document.getElementById('external-csv-open').onclick=function(){input.value='';input.click()};document.getElementById('external-csv-cancel').onclick=function(){modal.classList.add('hidden');document.body.classList.remove('overflow-hidden');pending=[]};
 input.onchange=function(){var file=input.files&&input.files[0];if(!file)return;var reader=new FileReader();reader.onload=function(){try{var bytes=new Uint8Array(reader.result),text;try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes)}catch(_){text=new TextDecoder('shift_jis').decode(bytes)}if(text.charCodeAt(0)===65279)text=text.slice(1);var rows=parse(text);if(rows.length<2)throw Error('CSVの見出しとデータを確認できません');var map=rows[0].map(function(h){var n=norm(h),key=Object.keys(aliases).find(function(k){return norm(k)===n});return key?aliases[key]:''});if(!map.some(Boolean))throw Error('アプリで読み取れる見出しがありません');pending=rows.slice(1).filter(function(r){return r.some(function(v){return String(v||'').trim()})}).map(function(r){var card={};Object.keys(fields).forEach(function(k){card[k]=''});map.forEach(function(k,i){if(k&&r[i])card[k]=String(r[i]).trim().slice(0,5000)});return card});if(!pending.length)throw Error('取り込む名刺データがありません');document.getElementById('external-csv-file').textContent=file.name;document.getElementById('external-csv-count').textContent=pending.length+'件を新規追加します';document.getElementById('external-csv-fields').textContent='読み取る項目：'+Array.from(new Set(map.filter(Boolean))).map(function(k){return fields[k]}).join('、');document.getElementById('external-csv-sample').textContent='先頭4件：'+String.fromCharCode(10)+pending.slice(0,4).map(function(c){return [c.name,c.company].filter(Boolean).join(' / ')||'氏名・会社名なし'}).join(String.fromCharCode(10));modal.classList.remove('hidden');document.body.classList.add('overflow-hidden')}catch(e){showToast(e.message||'CSVを読み取れませんでした','error')}};reader.onerror=function(){showToast('CSVファイルを読み込めませんでした','error')};reader.readAsArrayBuffer(file)};
-document.getElementById('external-csv-save').onclick=async function(){if(!pending.length)return;var button=this;button.disabled=true;button.textContent='登録中...';try{var count=0;for(var i=0;i<pending.length;i+=100){var response=await fetch('/api/cards/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cards:pending.slice(i,i+100)})}),result=await response.json();if(!response.ok||!result.success)throw Error(result.error||'登録に失敗しました');count+=result.importedCount||0}modal.classList.add('hidden');document.body.classList.remove('overflow-hidden');pending=[];await loadCardsFromSpreadsheet();showToast(count+'件の名刺を取り込みました')}catch(e){showToast(e.message||'登録に失敗しました','error')}finally{button.disabled=false;button.textContent='この内容で追加'}};
+document.getElementById('external-csv-save').onclick=async function(){if(!pending.length)return;var button=this;button.disabled=true;button.textContent='登録中...';try{var count=0;for(var i=0;i<pending.length;i+=100){var response=await fetch('/api/cards/import',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Requested-With':'my-card-app'},body:JSON.stringify({cards:pending.slice(i,i+100)})}),result=await response.json();if(!response.ok||!result.success)throw Error(result.error||'登録に失敗しました');count+=result.importedCount||0}modal.classList.add('hidden');document.body.classList.remove('overflow-hidden');pending=[];await loadCardsFromSpreadsheet();showToast(count+'件の名刺を取り込みました')}catch(e){showToast(e.message||'登録に失敗しました','error')}finally{button.disabled=false;button.textContent='この内容で追加'}};
 })();
 </script>
 

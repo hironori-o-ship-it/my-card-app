@@ -1,9 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+import { requireUser } from '../lib/auth.js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 const UNIT_PRICE_YEN = 0.02;
 const OWNER = process.env.SUPABASE_USAGE_OWNER || 'default-account';
 
@@ -14,6 +10,9 @@ function monthKey() {
 
 export default async function handler(req, res) {
   try {
+    const auth = await requireUser(req, res);
+    if (!auth) return;
+    const supabase = auth.supabase;
     const month = monthKey();
     if (req.method === 'GET') {
       const { data, error } = await supabase.from('ocr_usage').select('*').eq('owner', OWNER).maybeSingle();
@@ -35,6 +34,6 @@ export default async function handler(req, res) {
     return res.status(405).end('Method ' + req.method + ' Not Allowed');
   } catch (err) {
     console.error('Usage API Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: '利用状況の取得に失敗しました' });
   }
 }
