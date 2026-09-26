@@ -19,12 +19,14 @@ create index if not exists cards_tenant_idx on public.cards (tenant, created_at 
 -- 3) 操作ログにも台帳を記録
 alter table public.audit_logs add column if not exists tenant text not null default '';
 
--- 4) 管理者（小田島組）を名簿に登録
+-- 4) 管理者を「小田島組」の台帳に結び付ける（既に自分専用の台帳ができていても小田島組に戻す）
 insert into public.members (email, tenant, tenant_name)
 values ('hironori-o@odashima.co.jp', 'odashima', '小田島組 営業専用スマート名刺台帳')
-on conflict (email) do nothing;
+on conflict (email) do update set tenant = excluded.tenant, tenant_name = excluded.tenant_name;
 
--- ▼ 知人（モニター）を追加するときのひな形（Authentication > Users でアカウントを作ってから実行）
---   tenant は人ごとに別の記号にする（同じ会社の人どうしで共有したいときだけ同じ記号にする）
+-- ▼ 知人（モニター）は Authentication > Users でアカウントを作るだけでよい。
+--   初めてログインしたときに、その人専用の台帳が自動で作られる。
+-- ▼ 社内の人を「小田島組」の台帳に入れたいときだけ、次のひな形で1行足す（ログイン前でも後でもよい）
 -- insert into public.members (email, tenant, tenant_name)
--- values ('知人のメールアドレス（小文字）', 'monitor_01', '〇〇さんの名刺台帳');
+-- values ('社内の人のメールアドレス（小文字）', 'odashima', '小田島組 営業専用スマート名刺台帳')
+-- on conflict (email) do update set tenant = excluded.tenant, tenant_name = excluded.tenant_name;
