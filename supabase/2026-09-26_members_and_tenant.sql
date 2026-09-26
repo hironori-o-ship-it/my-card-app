@@ -30,18 +30,18 @@ create index if not exists cards_tenant_idx on public.cards (tenant, created_at 
 -- 3) 操作ログにも台帳を記録
 alter table public.audit_logs add column if not exists tenant text not null default '';
 
--- 4) 管理者を「小田島組」の台帳に結び付ける（既に自分専用の台帳ができていても小田島組に戻す）
---    （管理者はAI読み取りの上限なし）
+-- 4) 管理者を、今ある名刺（小田島組の台帳）に結び付ける（管理者だけが見られる）
+--    （AI読み取りの上限はテスト期間中の1人月100枚。上限なしにするときは null）
 insert into public.members (email, tenant, tenant_name, ocr_monthly_limit)
-values ('hironori-o@odashima.co.jp', 'odashima', '小田島組 営業専用スマート名刺台帳', null)
+values ('hironori-o@odashima.co.jp', 'odashima', '小田島組 営業専用スマート名刺台帳', 100)
 on conflict (email) do update set tenant = excluded.tenant, tenant_name = excluded.tenant_name, ocr_monthly_limit = excluded.ocr_monthly_limit;
 
 -- ▼ ある台帳に上限を付けるとき（例：月200枚に）
 -- update public.members set ocr_monthly_limit = 200 where tenant = '台帳の記号';
 
--- ▼ 社内の人は Authentication > Users でアカウントを作るだけでよい。
---   初めてログインしたときに、自動で「小田島組」の台帳に入る。
--- ▼ 別の台帳に分けたい人がいるときだけ、次のひな形で1行足す（ログイン前でも後でもよい）
+-- ▼ ほかの人は Authentication > Users でアカウントを作るだけでよい。
+--   初めてログインしたときに、その人専用の台帳が自動で作られる（本人しか見られない）。
+-- ▼ 複数人で同じ台帳を使わせたいときだけ、次のひな形で同じ台帳の記号を付ける（ログイン前でも後でもよい）
 -- insert into public.members (email, tenant, tenant_name)
 -- values ('その人のメールアドレス（小文字）', '台帳の記号（例 branch_a）', '台帳の名前')
 -- on conflict (email) do update set tenant = excluded.tenant, tenant_name = excluded.tenant_name;
