@@ -11,8 +11,8 @@ create table if not exists public.members (
   created_at timestamptz not null default now()
 );
 alter table public.members enable row level security;
--- 月のAI読み取り上限（枚）。空（null）なら上限なし。新しい台帳は100枚（モニター期間用）
-alter table public.members add column if not exists ocr_monthly_limit integer default 100;
+-- 月のAI読み取り上限（枚・台帳全体の枚数に対して）。空（null）なら上限なし
+alter table public.members add column if not exists ocr_monthly_limit integer;
 
 -- AI読み取りの枚数（台帳ごと・月ごと）。owner に台帳の記号が入る
 create table if not exists public.ocr_usage (
@@ -36,12 +36,12 @@ insert into public.members (email, tenant, tenant_name, ocr_monthly_limit)
 values ('hironori-o@odashima.co.jp', 'odashima', '小田島組 営業専用スマート名刺台帳', null)
 on conflict (email) do update set tenant = excluded.tenant, tenant_name = excluded.tenant_name, ocr_monthly_limit = excluded.ocr_monthly_limit;
 
--- ▼ ある人の上限を変えるとき（例：200枚に）
--- update public.members set ocr_monthly_limit = 200 where email = 'その人のメールアドレス';
+-- ▼ ある台帳に上限を付けるとき（例：月200枚に）
+-- update public.members set ocr_monthly_limit = 200 where tenant = '台帳の記号';
 
--- ▼ 知人（モニター）は Authentication > Users でアカウントを作るだけでよい。
---   初めてログインしたときに、その人専用の台帳が自動で作られる。
--- ▼ 社内の人を「小田島組」の台帳に入れたいときだけ、次のひな形で1行足す（ログイン前でも後でもよい）
+-- ▼ 社内の人は Authentication > Users でアカウントを作るだけでよい。
+--   初めてログインしたときに、自動で「小田島組」の台帳に入る。
+-- ▼ 別の台帳に分けたい人がいるときだけ、次のひな形で1行足す（ログイン前でも後でもよい）
 -- insert into public.members (email, tenant, tenant_name)
--- values ('社内の人のメールアドレス（小文字）', 'odashima', '小田島組 営業専用スマート名刺台帳')
+-- values ('その人のメールアドレス（小文字）', '台帳の記号（例 branch_a）', '台帳の名前')
 -- on conflict (email) do update set tenant = excluded.tenant, tenant_name = excluded.tenant_name;
