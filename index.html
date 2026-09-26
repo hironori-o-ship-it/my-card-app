@@ -1226,6 +1226,12 @@
       });
     }
 
+    // 「（今月 12/100枚）」のような表示。上限なしの台帳では出さない
+    function usageText(usage) {
+      if (!usage || usage.limit === null || usage.limit === undefined) return '';
+      return '（今月のAI読み取り ' + usage.monthCount + '/' + usage.limit + '枚）';
+    }
+
     function handleImageSelected(e) {
       var file = e.target.files[0];
       e.target.value = '';
@@ -1236,7 +1242,7 @@
           hideLoading();
           if (res.success) {
             if (res.cards && res.cards[0]) showRegistrationNotice(res.cards[0]);
-            showToast('名刺を登録しました！');
+            showToast('名刺を登録しました！' + usageText(res.usage));
             loadCardsFromSpreadsheet();
           } else {
             showToast(res.error || '登録失敗', 'error');
@@ -1255,10 +1261,13 @@
       var index = 0;
       var okCount = 0;
       var failCount = 0;
+      var lastUsage = null;
+      var limitMessage = '';
       var finish = function() {
         hideLoading();
         loadCardsFromSpreadsheet();
-        if (failCount === 0) showToast(okCount + '枚の名刺を登録しました！');
+        if (limitMessage) showToast((okCount ? okCount + '枚を登録しました。' : '') + limitMessage, 'error');
+        else if (failCount === 0) showToast(okCount + '枚の名刺を登録しました！' + usageText(lastUsage));
         else showToast(okCount + '枚を登録、' + failCount + '枚は読み取れませんでした。撮り直してください', 'error');
       };
       var next = function() {
@@ -1267,7 +1276,8 @@
         showLoading(files.length + '枚を順番に解析中...（' + index + '/' + files.length + '）');
         registerCardImage(file)
           .then(function(res) {
-            if (res.success) { okCount++; if (res.cards && res.cards[0]) showRegistrationNotice(res.cards[0]); }
+            if (res.success) { okCount++; lastUsage = res.usage; if (res.cards && res.cards[0]) showRegistrationNotice(res.cards[0]); }
+            else if (res.limitReached) { limitMessage = res.error; finish(); return; } // 上限に達したら残りは送らない
             else failCount++;
             next();
           })

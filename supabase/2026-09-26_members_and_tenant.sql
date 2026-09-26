@@ -11,6 +11,17 @@ create table if not exists public.members (
   created_at timestamptz not null default now()
 );
 alter table public.members enable row level security;
+-- 月のAI読み取り上限（枚）。空（null）なら上限なし。新しい台帳は100枚（モニター期間用）
+alter table public.members add column if not exists ocr_monthly_limit integer default 100;
+
+-- AI読み取りの枚数（台帳ごと・月ごと）。owner に台帳の記号が入る
+create table if not exists public.ocr_usage (
+  owner text primary key,
+  month_key text not null default '',
+  month_count integer not null default 0,
+  total_count integer not null default 0
+);
+alter table public.ocr_usage enable row level security;
 
 -- 2) 名刺に「どの台帳のものか」を持たせる。既存の名刺はすべて小田島組
 alter table public.cards add column if not exists tenant text not null default 'odashima';
@@ -20,9 +31,13 @@ create index if not exists cards_tenant_idx on public.cards (tenant, created_at 
 alter table public.audit_logs add column if not exists tenant text not null default '';
 
 -- 4) 管理者を「小田島組」の台帳に結び付ける（既に自分専用の台帳ができていても小田島組に戻す）
-insert into public.members (email, tenant, tenant_name)
-values ('hironori-o@odashima.co.jp', 'odashima', '小田島組 営業専用スマート名刺台帳')
-on conflict (email) do update set tenant = excluded.tenant, tenant_name = excluded.tenant_name;
+--    （管理者はAI読み取りの上限なし）
+insert into public.members (email, tenant, tenant_name, ocr_monthly_limit)
+values ('hironori-o@odashima.co.jp', 'odashima', '小田島組 営業専用スマート名刺台帳', null)
+on conflict (email) do update set tenant = excluded.tenant, tenant_name = excluded.tenant_name, ocr_monthly_limit = excluded.ocr_monthly_limit;
+
+-- ▼ ある人の上限を変えるとき（例：200枚に）
+-- update public.members set ocr_monthly_limit = 200 where email = 'その人のメールアドレス';
 
 -- ▼ 知人（モニター）は Authentication > Users でアカウントを作るだけでよい。
 --   初めてログインしたときに、その人専用の台帳が自動で作られる。

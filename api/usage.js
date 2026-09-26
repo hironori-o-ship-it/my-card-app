@@ -1,36 +1,19 @@
 import { requireUser } from '../lib/auth.js';
+import { readUsage } from '../lib/usage.js';
 
 const UNIT_PRICE_YEN = 0.02;
 
-function monthKey() {
-  const d = new Date();
-  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
-}
-
+// 今月のAI読み取り枚数と上限（台帳ごと）。数え上げは /api/ocr だけが行う
+// （以前あった POST のリセットは、利用者が上限を外せてしまうため廃止）
 export default async function handler(req, res) {
   try {
     const auth = await requireUser(req, res);
     if (!auth) return;
-    const supabase = auth.supabase;
-    const OWNER = auth.tenant;
-    const month = monthKey();
     if (req.method === 'GET') {
-      const { data, error } = await supabase.from('ocr_usage').select('*').eq('owner', OWNER).maybeSingle();
-      if (error) throw error;
-      const row = data || { month_key: month, month_count: 0, total_count: 0 };
-      return res.status(200).json({ success: true, monthCount: row.month_key === month ? row.month_count : 0, totalCount: row.total_count || 0, unitPriceYen: UNIT_PRICE_YEN });
+      const usage = await readUsage(auth.supabase, auth.tenant);
+      return res.status(200).json({ success: true, monthCount: usage.monthCount, totalCount: usage.row.total_count || 0, limit: auth.ocrLimit, unitPriceYen: UNIT_PRICE_YEN });
     }
-    if (req.method === 'POST') {
-      const action = req.body && req.body.action;
-      const { data: current, error: readError } = await supabase.from('ocr_usage').select('*').eq('owner', OWNER).maybeSingle();
-      if (readError) throw readError;
-      const base = current || { owner: OWNER, month_key: month, month_count: 0, total_count: 0 };
-      const next = action === 'reset' ? { ...base, month_key: month, month_count: 0, total_count: 0 } : { ...base, month_key: month, month_count: base.month_key === month ? (base.month_count || 0) + 1 : 1, total_count: (base.total_count || 0) + 1 };
-      const { data, error } = await supabase.from('ocr_usage').upsert(next, { onConflict: 'owner' }).select().single();
-      if (error) throw error;
-      return res.status(200).json({ success: true, monthCount: data.month_count, totalCount: data.total_count, unitPriceYen: UNIT_PRICE_YEN });
-    }
-    res.setHeader('Allow', ['GET', 'POST']);
+    res.setHeader('Allow', ['GET']);
     return res.status(405).end('Method ' + req.method + ' Not Allowed');
   } catch (err) {
     console.error('Usage API Error:', err);

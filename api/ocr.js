@@ -1,5 +1,6 @@
 import { requireUser, writeAuditLog } from '../lib/auth.js';
 import { clip } from '../lib/cards.js';
+import { addOcrUsage, checkOcrLimit } from '../lib/usage.js';
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
@@ -26,6 +27,13 @@ export default async function handler(req, res) {
     }
     const mimeType = header[1].toLowerCase();
     const rawBase64 = base64Image.slice(header[0].length);
+
+    // 月のAI読み取り上限（台帳ごと）
+    const quota = await checkOcrLimit(auth);
+    if (!quota.allowed) {
+      await writeAuditLog(supabase, { email: auth.email, tenant: auth.tenant, ip: auth.ip, action: 'ocr_limit_reached', detail: { monthCount: quota.monthCount, limit: quota.limit } });
+      return res.status(429).json({ success: false, limitReached: true, error: '今月のAI読み取り上限（' + quota.limit + '枚）に達しました。来月1日から再び使えます。CSV取込や名刺の編集はこのまま使えます' });
+    }
 
     const systemInstruction = "日本のビジネス名刺画像を解析し、JSONスキーマに従って精密に出力してください。複数枚並べて撮影されている場合は配列の中に全てのカードを抽出してください。会社名と氏名のひらがな（company_kana, name_kana）を推測付与し、市外局番と携帯番号を分別してください。未記載は空文字列にしてください。";
 
@@ -81,6 +89,7 @@ export default async function handler(req, res) {
       return res.status(502).json({ success: false, error: 'AIの読み取りに失敗しました。時間をおいて再度お試しください' });
     }
 
+    const monthCount = await addOcrUsage(auth); // AIに読ませた時点で1枚と数える（読み取れなくても費用はかかるため）
     const geminiJson = await geminiRes.json();
     const textOutput = geminiJson.candidates[0].content.parts[0].text;
     const parsedData = JSON.parse(textOutput);
@@ -133,6 +142,7 @@ export default async function handler(req, res) {
     // 画像本体は返さない（一覧は /api/cards、画像は /api/cards/image から取る）
     return res.status(200).json({
       success: true,
+      usage: { monthCount, limit: auth.ocrLimit },
       cards: insertedCards
     });
 
