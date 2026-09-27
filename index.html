@@ -104,6 +104,10 @@
           📸 まとめ撮り(4枚)
         </button>
         <input type="file" id="camera-batch-input" accept="image/*" multiple class="hidden" onchange="handleBatchImagesSelected(event)">
+        <button type="button" id="admin-button" onclick="openAdminModal()" title="利用者の管理" class="hidden inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-2.5 py-1.5 rounded-xl border border-slate-700 transition">
+          <i class="fa-solid fa-users-gear text-slate-400"></i>
+          <span class="hidden sm:inline">利用者</span>
+        </button>
         <button type="button" id="password-button" onclick="openPasswordModal()" title="パスワード変更" class="hidden inline-flex items-center bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-2.5 py-1.5 rounded-xl border border-slate-700 transition">
           <i class="fa-solid fa-key text-slate-400"></i>
         </button>
@@ -175,6 +179,33 @@
         <button type="button" onclick="closeLogModal()" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div id="log-list" class="overflow-y-auto"></div>
+    </div>
+  </div>
+
+  <!-- 利用者の管理（管理者だけ） (#admin-modal) -->
+  <div id="admin-modal" class="hidden fixed inset-0 z-[70] bg-slate-900/60 flex items-center justify-center p-4" onclick="closeAdminModal()">
+    <div onclick="event.stopPropagation()" class="bg-white w-full max-w-lg max-h-[90vh] rounded-3xl shadow-xl border border-slate-200 p-5 flex flex-col gap-3 text-xs">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-slate-900"><i class="fa-solid fa-users-gear text-indigo-500 mr-1"></i>利用者の管理（管理者だけ）</h3>
+        <button type="button" onclick="closeAdminModal()" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form onsubmit="submitAdminAddUser(event)" class="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
+        <div class="font-bold text-slate-800">新しい利用者を追加</div>
+        <input type="text" autocomplete="username" class="hidden" aria-hidden="true">
+        <input type="email" id="admin-new-email" required placeholder="メールアドレス" autocomplete="off" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <input type="password" id="admin-new-password" required placeholder="最初のパスワード（10文字以上）" autocomplete="new-password" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <label class="flex items-center gap-2 text-slate-700"><input type="checkbox" id="admin-new-team">チームの名刺も使えるようにする</label>
+        <button type="submit" id="admin-add-btn" class="w-full py-2 font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl">追加する</button>
+        <p class="text-[11px] text-slate-500 leading-relaxed">追加した人は、すぐにログインできます。初めてログインしたときに、その人専用の台帳ができます（ほかの人の名刺は見えません）。メールアドレスと最初のパスワードを本人に伝え、ログイン後に 🔑 で変えてもらってください。</p>
+      </form>
+      <form id="admin-reset-box" onsubmit="submitAdminReset(event)" class="hidden bg-amber-50 border border-amber-200 rounded-2xl p-3 space-y-2">
+        <div class="font-bold text-amber-900">パスワード再設定：<span id="admin-reset-email" class="break-all"></span></div>
+        <input type="password" id="admin-reset-password" placeholder="新しいパスワード（10文字以上）" autocomplete="new-password" class="w-full bg-white border border-amber-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+        <div class="flex justify-end gap-2"><button type="button" onclick="cancelAdminReset()" class="px-3 py-1.5 font-semibold text-slate-600">やめる</button><button type="submit" class="px-4 py-1.5 font-bold bg-amber-600 text-white rounded-xl">設定する</button></div>
+      </form>
+      <p id="admin-error" class="hidden font-semibold text-rose-600"></p>
+      <div class="font-bold text-slate-800">利用者の一覧</div>
+      <div id="admin-user-list" class="overflow-y-auto min-h-[80px]"></div>
     </div>
   </div>
 
@@ -475,6 +506,7 @@
             <li>「バックアップ / 復元」タブの「重複している名刺を探す」で、同じ人の名刺の組を一覧にし、1件にまとめられます。</li>
             <li>「バックアップ / 復元」タブの「操作記録を開く」で、誰が・いつ・どの名刺を登録／編集／移動／削除したかの記録を見られます。チームの名刺を開いているときは、チームの名刺の記録が出ます。</li>
             <li>チームの名刺を使える人（上司・同僚）は、管理者が決めます。使いたいときは管理者に相談してください。</li>
+            <li><b>管理者だけ</b>：右上の「利用者」で、新しい利用者の追加、使えなくする／再開、パスワードの再設定、チームの名刺に入れる／外すができます。追加した人は、初めてログインしたときにその人専用の台帳ができます。</li>
           </ul>
         </div>
 
@@ -884,6 +916,8 @@
       if (err) { err.textContent = message || ''; err.classList.toggle('hidden', !message); }
       document.getElementById('logout-button').classList.add('hidden');
       document.getElementById('password-button').classList.add('hidden');
+      document.getElementById('admin-button').classList.add('hidden');
+      closeAdminModal();
       document.getElementById('tenant-label').textContent = '';
       closePasswordModal();
       if (overlay) overlay.classList.remove('hidden');
@@ -891,7 +925,9 @@
       if (email && !email.value) email.focus();
     }
 
-    function showLoggedInUser(email, tenantName) {
+    function showLoggedInUser(email, tenantName, isAdmin) {
+      var adminBtn = document.getElementById('admin-button');
+      if (adminBtn) adminBtn.classList.toggle('hidden', !isAdmin);
       var label = document.getElementById('login-user-label');
       if (label) label.textContent = email || '';
       var tenantLabel = document.getElementById('tenant-label');
@@ -913,7 +949,7 @@
         .then(function(res) {
           if (res && res.success) {
             passwordEl.value = '';
-            showLoggedInUser(res.email, res.tenantName);
+            showLoggedInUser(res.email, res.tenantName, res.isAdmin);
             loadCardsFromSpreadsheet();
           } else {
             err.textContent = (res && res.error) || 'ログインに失敗しました';
@@ -995,8 +1031,111 @@
     }
     function closeLogModal() { document.getElementById('log-modal').classList.add('hidden'); }
 
+    // ===== 利用者の管理（管理者だけに表示。実際に管理者かどうかはサーバーで確かめる） =====
+    var adminResetTarget = null;
+    function openAdminModal() {
+      document.getElementById('admin-modal').classList.remove('hidden');
+      document.getElementById('admin-error').classList.add('hidden');
+      cancelAdminReset();
+      loadAdminUsers();
+    }
+    function closeAdminModal() {
+      var m = document.getElementById('admin-modal');
+      if (m) m.classList.add('hidden');
+      ['admin-new-password', 'admin-reset-password'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+    }
+    function adminError(msg) {
+      var el = document.getElementById('admin-error');
+      el.textContent = msg || '';
+      el.classList.toggle('hidden', !msg);
+    }
+    function loadAdminUsers() {
+      var box = document.getElementById('admin-user-list');
+      box.innerHTML = '<div class="p-3 text-center text-slate-500">読み込み中...</div>';
+      callRpc('apiAdminListUsers', []).then(function(res) {
+        if (!res || !res.success) { box.innerHTML = '<div class="p-3 text-center text-rose-600">' + escapeHtml((res && res.error) || '読み込めませんでした') + '</div>'; return; }
+        box.innerHTML = res.users.map(function(u) {
+          var mine = u.email === res.me;
+          var badge = function(text, cls) { return '<span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ' + cls + '">' + text + '</span>'; };
+          return '<div class="py-2.5 border-b border-slate-100 space-y-1.5">' +
+            '<div class="flex flex-wrap items-center gap-1.5"><span class="font-semibold text-slate-800 break-all">' + escapeHtml(u.email) + '</span>' +
+              (u.admin ? badge('管理者', 'bg-indigo-100 text-indigo-700') : '') +
+              (u.stopped ? badge('停止中', 'bg-rose-100 text-rose-700') : badge('利用中', 'bg-emerald-100 text-emerald-700')) +
+              (u.team ? badge('チーム', 'bg-sky-100 text-sky-700') : '') + '</div>' +
+            '<div class="text-[11px] text-slate-500">登録 ' + escapeHtml(u.createdAt || '-') + '　最後のログイン ' + escapeHtml(u.lastSignIn || 'まだ') + '</div>' +
+            '<div class="flex flex-wrap gap-1.5">' +
+              '<button type="button" onclick="adminToggleTeam(' + jsArg(u.id) + ', ' + (u.team ? 'false' : 'true') + ', ' + jsArg(u.email) + ')" class="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700">' + (u.team ? 'チームから外す' : 'チームに入れる') + '</button>' +
+              '<button type="button" onclick="startAdminReset(' + jsArg(u.id) + ', ' + jsArg(u.email) + ')" class="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700">パスワード再設定</button>' +
+              (mine ? '' : '<button type="button" onclick="adminToggleStop(' + jsArg(u.id) + ', ' + (u.stopped ? 'false' : 'true') + ', ' + jsArg(u.email) + ')" class="px-2.5 py-1 rounded-lg border ' + (u.stopped ? 'border-emerald-300 text-emerald-700' : 'border-rose-300 text-rose-700') + '">' + (u.stopped ? '再開する' : '使えなくする') + '</button>') +
+            '</div></div>';
+        }).join('') || '<div class="p-3 text-center text-slate-500">利用者はまだいません</div>';
+      }).catch(function(err) { if (!err.needLogin) box.innerHTML = '<div class="p-3 text-center text-rose-600">読み込めませんでした</div>'; });
+    }
+    function submitAdminAddUser(event) {
+      event.preventDefault();
+      adminError('');
+      var email = document.getElementById('admin-new-email').value.trim();
+      var pass = document.getElementById('admin-new-password').value;
+      var team = document.getElementById('admin-new-team').checked;
+      if (pass.length < 10) { adminError('最初のパスワードは10文字以上にしてください'); return; }
+      var btn = document.getElementById('admin-add-btn');
+      btn.disabled = true;
+      callRpc('apiAdminAddUser', [email, pass, team]).then(function(res) {
+        if (!res || !res.success) { adminError((res && res.error) || '追加できませんでした'); return; }
+        document.getElementById('admin-new-email').value = '';
+        document.getElementById('admin-new-password').value = '';
+        document.getElementById('admin-new-team').checked = false;
+        showToast(email + ' を追加しました。メールアドレスと最初のパスワードを本人に伝えてください');
+        loadAdminUsers();
+      }).catch(function(err) { if (!err.needLogin) adminError('通信エラーが発生しました'); })
+        .then(function() { btn.disabled = false; });
+    }
+    function adminToggleStop(id, stop, email) {
+      if (!confirm(stop ? email + ' を使えなくします。ログイン中でもすぐに使えなくなります。よろしいですか？\n（名刺のデータは消えません。「再開する」で戻せます）' : email + ' を再開します。よろしいですか？')) return;
+      callRpc('apiAdminSetStopped', [id, stop]).then(function(res) {
+        if (!res || !res.success) { adminError((res && res.error) || '変更できませんでした'); return; }
+        showToast(stop ? email + ' を使えなくしました' : email + ' を再開しました');
+        loadAdminUsers();
+      }).catch(function(err) { if (!err.needLogin) adminError('通信エラーが発生しました'); });
+    }
+    function adminToggleTeam(id, join, email) {
+      if (!confirm(join ? email + ' をチームの名刺に入れます。チームの名刺が見られるようになります。よろしいですか？' : email + ' をチームの名刺から外します。チームの名刺が見られなくなります。よろしいですか？')) return;
+      callRpc('apiAdminSetTeam', [id, join]).then(function(res) {
+        if (!res || !res.success) { adminError((res && res.error) || '変更できませんでした'); return; }
+        showToast(join ? email + ' をチームに入れました' : email + ' をチームから外しました');
+        loadAdminUsers();
+      }).catch(function(err) { if (!err.needLogin) adminError('通信エラーが発生しました'); });
+    }
+    function startAdminReset(id, email) {
+      adminResetTarget = { id: id, email: email };
+      document.getElementById('admin-reset-email').textContent = email;
+      document.getElementById('admin-reset-box').classList.remove('hidden');
+      document.getElementById('admin-reset-password').value = '';
+      document.getElementById('admin-reset-password').focus();
+    }
+    function cancelAdminReset() {
+      adminResetTarget = null;
+      var box = document.getElementById('admin-reset-box');
+      if (box) box.classList.add('hidden');
+      var el = document.getElementById('admin-reset-password');
+      if (el) el.value = '';
+    }
+    function submitAdminReset(event) {
+      event.preventDefault();
+      if (!adminResetTarget) return;
+      var pass = document.getElementById('admin-reset-password').value;
+      if (pass.length < 10) { adminError('パスワードは10文字以上にしてください'); return; }
+      var t = adminResetTarget;
+      callRpc('apiAdminResetPassword', [t.id, pass]).then(function(res) {
+        if (!res || !res.success) { adminError((res && res.error) || '設定できませんでした'); return; }
+        adminError('');
+        cancelAdminReset();
+        showToast(t.email + ' のパスワードを設定しました。本人に伝え、ログイン後に 🔑 で変えてもらってください');
+      }).catch(function(err) { if (!err.needLogin) adminError('通信エラーが発生しました'); });
+    }
+
     window.addEventListener('DOMContentLoaded', function() {
-      apiFetch('/api/auth').then(function(me) { if (me && me.success) showLoggedInUser(me.email, me.tenantName); }).catch(function() {});
+      apiFetch('/api/auth').then(function(me) { if (me && me.success) showLoggedInUser(me.email, me.tenantName, me.isAdmin); }).catch(function() {});
     });
   </script>
   <script>
@@ -3082,7 +3221,7 @@ button.onclick=function(){var cards=Array.isArray(allCards)?allCards:[];if(!card
       otherAccount: { q: '別のメールアドレスでログインしたら名刺がない', k: 'アカウント 別 違う 名刺がない 空っぽ 切り替え メールアドレス', a: '名刺はログインするメールアドレス（アカウント）ごとに別々の台帳に保存されます。いつも同じメールアドレスでログインしてください。' },
       openUrl: { a: '管理者から案内されたURLから開きます。分からなくなったら管理者に聞いてください。開けたら、ブラウザのブックマークや、スマホのホーム画面に置いておくと便利です。' },
       faceRemove: { a: '変えるときは「撮る／選ぶ」で登録し直すと差し替わります。外すときは「外す」を押します。' },
-      teamMember: { a: 'チームの名刺を使える人は管理者が決めます（管理者が、その人に同じチームの記号を設定します）。外すときも管理者に頼んでください。' },
+      teamMember: { a: '管理者が、右上の「利用者」で「チームに入れる」「チームから外す」を押します。管理者でない人は、管理者に頼んでください。' },
       teamNoAccess: { a: 'あなたはまだチームの名刺を使う設定になっていません。管理者に、チームに入れてもらうよう頼んでください。' },
       sharedSheet: { q: 'チームの名刺の一覧を表で見たい', k: '共有シート 一覧 表 Excel チーム 見たい', a: 'Web版にはスプレッドシートはありません。「👥 チームの名刺」に切り替えて、「CSVを書き出す（全項目）」で書き出すと、Excelで表として見られます。' },
       sheet: { q: 'スプレッドシート（表）で見たい', k: 'スプレッドシート シート 表 Excel エクセル 一覧', a: 'Web版にはスプレッドシートはありません。「CSVを書き出す（全項目）」または「バックアップ / 復元」タブの「全名刺CSVエクスポート」で書き出すと、Excelで表として見られます。' },
@@ -3091,7 +3230,7 @@ button.onclick=function(){var cards=Array.isArray(allCards)?allCards:[];if(!card
       log: { a: '「バックアップ / 復元」タブの「操作記録を開く」で、誰が・いつ・どの名刺を登録／編集／移動／削除したかを見られます。チームの名刺を開いているときは、チームの名刺の記録が出ます。' },
       login: { q: 'ログイン画面が出た・ログインできない', k: 'ログイン できない パスワード 違う 画面 入れない', a: '管理者から受け取ったメールアドレスとパスワードを入れて「ログイン」を押してください。7日間使わないと、もう一度ログインが必要になります。「メールアドレスまたはパスワードが違います」と出るときは、入力を確かめ、分からなければ管理者に連絡してください。' },
       deployError: { q: 'パスワードを変えたい', k: 'パスワード 変更 変える 鍵 キー', a: '右上の 🔑 を押し、今のパスワードと新しいパスワード（10文字以上・2回）を入れて「変更する」を押します。' },
-      firstTime: { q: 'パスワードを忘れた', k: 'パスワード 忘れた わからない 思い出せない', a: '管理者に連絡してください。管理者が新しいパスワードを設定します。ログインできたら、右上の 🔑 で自分のパスワードに変えてください。' },
+      firstTime: { q: 'パスワードを忘れた', k: 'パスワード 忘れた わからない 思い出せない', a: '管理者に連絡してください。管理者が右上の「利用者」で「パスワード再設定」をします。ログインできたら、右上の 🔑 で自分のパスワードに変えてください。' },
       multiAccount: { q: 'ログアウトしたい', k: 'ログアウト 終わる 共用 パソコン 他の人', a: '右上の、メールアドレスが出ているボタン（スマホではドアのマーク）を押します。共用のパソコンで使ったときは、必ずログアウトしてください。' },
       privacy: { a: '自分の名刺は、あなたの台帳に保存され、ログインしたあなたしか見られません。名刺画像も、ログインした本人にしか表示しません。「チームの名刺」に移したものだけ、チームの上司・同僚が見られます。自分だけのメモは、チームの名刺でもあなたしか見られません。' },
       where: { a: 'アプリのサーバー（データベース）の、あなた専用の台帳に保存されます。ログインしたあなた以外は、画面から見ることはできません。' },
@@ -3100,8 +3239,8 @@ button.onclick=function(){var cards=Array.isArray(allCards)?allCards:[];if(!card
       faceWhere: { a: '顔写真は、名刺のデータと一緒にアプリのサーバー（データベース）に保存されます。' },
       teamWhat: { a: '上司・同僚と一緒に見る名刺の台帳です。自分の名刺とは別に保存され、管理者がチームに入れた人だけが見られます。' },
       teamWhoEdit: { a: 'チームの名刺を開いた状態で、「バックアップ / 復元」タブの「操作記録を開く」を押すと見られます。' },
-      teamStart: { a: '管理者が、使う人をチームに入れます。入ると「👥 チームの名刺」に切り替えて使えるようになります。管理者に相談してください。' },
-      teamLeave: { a: '管理者に、その人をチームから外してもらいます。その人の自分の名刺は、その人の台帳に残ります。' },
+      teamStart: { a: '管理者が、右上の「利用者」で使う人を「チームに入れる」にします。入ると「👥 チームの名刺」に切り替えて使えるようになります。管理者に相談してください。' },
+      teamLeave: { a: '管理者が、右上の「利用者」でその人を「チームから外す」にします。会社を辞めた人は「使えなくする」にすると、ログインもできなくなります。その人の自分の名刺は台帳に残ります。' },
       sheetShareNo: { q: '書き出したデータやログイン情報を人に渡していい？', k: '共有 渡す 見せる パスワード 貸す CSV', a: '渡さないでください。パスワードは人に教えず、アカウントを貸し借りしないでください。上司・同僚と見たい名刺は、アプリの 🔁 で「チームの名刺」に移すのが決まった方法です。' },
       folderWhat: { q: 'データはどんな形で保存されている？', k: 'データ 形式 保存 中身 構成', a: '名刺の項目・メモ・画像・顔写真は、アプリのサーバー（データベース）に台帳ごとに保存されます。「CSVを書き出す（全項目）」で、画像以外の全項目を書き出せます。' },
       blank: { a: 'ブラウザで読み込み直してください。ログイン画面が出たら、ログインし直してください。直らないときは管理者に連絡してください。' },
@@ -3109,6 +3248,11 @@ button.onclick=function(){var cards=Array.isArray(allCards)?allCards:[];if(!card
       lostPhone: { a: '名刺はスマホではなくアプリのサーバーに保存されているので、データは残っています。ほかの人に見られないように、別のパソコンなどでログインして 🔑 でパスワードを変え、管理者に連絡してください。' },
       quitDelete: { a: '管理者に連絡してください。消す前に、会社の決まり（名刺の保管や引き継ぎ）を確かめます。消すと元に戻せません。' }
     };
+    // Web版だけの質問（管理者の利用者の管理）
+    FAQ_DATA.push(
+      { id: 'adminAdd', cat: 'はじめて', q: '新しい人が使えるようにしたい（管理者）', k: '新しい人 追加 利用者 アカウント 登録 作る 招待 管理者', a: '管理者が右上の「利用者」を押し、「新しい利用者を追加」にメールアドレスと最初のパスワード（10文字以上）を入れて「追加する」を押します。すぐにログインでき、初めてのログインでその人専用の台帳ができます。メールアドレスと最初のパスワードを本人に伝え、ログイン後に 🔑 で変えてもらってください。' },
+      { id: 'adminStop', cat: 'データ・安全', q: '辞めた人が使えないようにしたい（管理者）', k: '辞めた 退職 使えなくする 停止 止める 削除 アカウント 管理者', a: '管理者が右上の「利用者」で、その人の「使えなくする」を押します。ログイン中でもすぐに使えなくなります。名刺のデータは消えず、「再開する」で戻せます。' }
+    );
     for (var i = 0; i < FAQ_DATA.length; i++) {
       var o = W[FAQ_DATA[i].id];
       if (o) FAQ_DATA[i] = Object.assign({}, FAQ_DATA[i], o);
