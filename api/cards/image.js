@@ -12,11 +12,14 @@ export default async function handler(req, res) {
   try {
     const auth = await requireUser(req, res);
     if (!auth) return;
-    const id = clip(req.query && req.query.id, 200);
+    let id = clip(req.query && req.query.id, 200);
     const column = req.query && req.query.kind === 'avatar' ? 'avatar_url' : 'file_url';
+    if (column === 'avatar_url' && id.indexOf('a-') === 0) id = id.slice(2); // 新しい画面の顔写真の印（a-名刺ID）
     if (!id) return res.status(400).json({ success: false, error: 'IDが指定されていません' });
 
-    const { data, error } = await auth.supabase.from('cards').select(column).eq('tenant', auth.tenant).eq('id', id).maybeSingle();
+    // 本人の台帳と、本人が入っているチームの台帳の画像だけ
+    const tenants = [auth.tenant].concat(auth.team ? [auth.team] : []);
+    const { data, error } = await auth.supabase.from('cards').select(column).in('tenant', tenants).eq('id', id).maybeSingle();
     if (error) throw error;
     const value = data ? String(data[column] || '') : '';
     const match = value.match(/^data:([^;,]+);base64,(.*)$/s);
