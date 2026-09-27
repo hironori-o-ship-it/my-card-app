@@ -1,4 +1,5 @@
 import { checkCsrf, clearSessionCookies, clientIp, ensureMember, getSupabase, requireUser, setSessionCookies, writeAuditLog } from '../lib/auth.js';
+import { isAdminEmail } from '../lib/features.js';
 
 // GET: ログイン中の確認 / POST {action:'login'|'logout'|'change_password'}
 export default async function handler(req, res) {
@@ -6,7 +7,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const auth = await requireUser(req, res);
       if (!auth) return;
-      return res.status(200).json({ success: true, email: auth.email, tenantName: auth.tenantName });
+      return res.status(200).json({ success: true, email: auth.email, tenantName: auth.tenantName, isAdmin: isAdminEmail(auth.email) });
     }
 
     if (req.method !== 'POST') {
@@ -29,12 +30,13 @@ export default async function handler(req, res) {
       if (error || !data || !data.session) {
         await writeAuditLog(supabase, { email, ip, action: 'login_failed' });
         await new Promise((r) => setTimeout(r, 800)); // 総当たり対策で少し待たせる
-        return res.status(401).json({ success: false, error: 'メールアドレスまたはパスワードが違います' });
+        const banned = error && /banned/i.test(error.message || '');
+        return res.status(401).json({ success: false, error: banned ? 'このアカウントは使えなくなっています。管理者に連絡してください' : 'メールアドレスまたはパスワードが違います' });
       }
       const member = await ensureMember(supabase, data.user);
       setSessionCookies(res, data.session);
       await writeAuditLog(supabase, { email, tenant: member.tenant, ip, action: 'login' });
-      return res.status(200).json({ success: true, email, tenantName: member.tenantName });
+      return res.status(200).json({ success: true, email, tenantName: member.tenantName, isAdmin: isAdminEmail(email) });
     }
 
     if (body.action === 'change_password') {
