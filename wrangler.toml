@@ -1,0 +1,6 @@
+# Cloudflare Pages の設定（Vercel版には影響しない）
+# 画面（index.html と assets）は npm run build:pages で dist/ に集め、/api は functions/ が受け持つ
+name = "my-card-app"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
