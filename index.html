@@ -458,7 +458,9 @@
             <li><b>グループ</b>：初めからある4つのほかに、グループ欄の「＋ 新しいグループを追加…」で自由に増やせます（チームの名刺では、チーム共通のグループになります）。</li>
             <li><b>名刺交換日・交換場所・次回連絡日</b>：いつ・どこで会ったか（展示会、ご紹介など）と、次に連絡する予定の日を記録できます。「カレンダーに登録」を押すとGoogleカレンダーの予定作成画面が開くので、確認して保存してください。</li>
             <li><b>商談メモ</b>：「📅 今日の日付を追記」で先頭に日付が入ります。新しいメモを上に書き足していく使い方で、一覧には最新の1行が表示され、「過去（〇件）」で履歴を開けます。</li>
-            <li><b>顔写真</b>：「📷 撮る／選ぶ」で写真を取り込むと、枠の画面が開きます。四角い枠を指やマウスで動かし、つまみで大きさを変えて「この範囲で登録」を押すと、枠の中だけが顔写真になります。名刺に顔写真が印刷されていれば「名刺画像から切り抜く」で、撮り直さずに登録できます。「外す」で顔写真を外せます。顔写真の登録にAIは使いません。</li>
+            <li><b>顔写真</b>：「📷 撮る／選ぶ」で写真を取り込むと、枠の画面が開き、AIが枠を顔に合わせます。ずれていたら、四角い枠を指やマウスで動かし、つまみで大きさを変えます。「この範囲で登録」を押すと、枠の中だけが顔写真になります。</li>
+            <li>名刺に顔写真が印刷されていれば「名刺画像から切り抜く」で、撮り直さずに登録できます。「外す」で顔写真を外せます。</li>
+            <li>AIで顔に合わせるのは1人月50回までです。顔が見つからないときや上限のときは、枠は真ん中のままなので、手で合わせてください。</li>
           </ul>
         </div>
 
@@ -514,7 +516,7 @@
           <div class="font-bold text-slate-900 text-xs">🤖 AIの読み取りと費用</div>
           <ul class="list-disc pl-5 space-y-1 text-slate-600">
             <li>名刺の読み取り（撮影・UP、まとめ撮り）には、いつもGoogleのAI（有料版。入力した内容はAIの学習に使われません）を使います。名刺は個人情報なので、無料の読み取りは使いません。</li>
-            <li>費用がかかるのは、名刺の読み取りと、錦織教授への質問だけです。顔写真・CSV・編集・検索・よくある質問・使い方ガイドの検索は無料です。</li>
+            <li>費用がかかるのは、名刺の読み取り、顔写真の枠をAIで顔に合わせるとき（1回およそ0.1〜0.5円）、錦織教授への質問だけです。CSV・編集・検索・よくある質問・使い方ガイドの検索は無料です。</li>
             <li>AIでの読み取りは、1人あたり月100枚までです。毎月1日（日本時間）に戻ります。上限に達すると「今月のAI読み取り上限に達しました」と出ますが、CSV取込や編集はそのまま使えます。</li>
             <li>「バックアップ / 復元」タブの一番下の「AI利用状況（概算）」を開くと、今月・累計の回数と、おおよその金額、今月の読み取り枚数が見られます。「リセット」は表示を0に戻すだけで、上限は外れません。</li>
             <li>上部の「🎓 錦織教授」ボタンでキャラクターを切り替えられますが、見た目が変わるだけで、読み取りの方法や費用は変わりません。</li>
@@ -561,7 +563,7 @@
       <form id="edit-card-form" onsubmit="saveEditedCard(event)" class="p-5 space-y-3.5 text-xs">
         <input type="hidden" id="edit-card-id">
 
-        <!-- 顔写真（AIは使わない） -->
+        <!-- 顔写真（枠はAIが顔に合わせる。登録そのものにAIは使わない） -->
         <div class="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
           <img id="edit-avatar-preview" alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" class="w-14 h-14 rounded-full object-cover border border-slate-200 bg-slate-200 shrink-0">
           <div class="min-w-0 space-y-1.5">
@@ -752,14 +754,15 @@
         <h3 class="text-sm font-bold text-slate-900"><i class="fa-solid fa-crop-simple text-indigo-500 mr-1"></i>顔写真の範囲を決める</h3>
         <button type="button" onclick="closeAvatarCropper()" class="text-slate-400 hover:text-slate-700 p-1"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <p class="text-[11px] text-slate-500">四角い枠を指やマウスで動かし、下のつまみで大きさを変えてください。枠の中だけが顔写真になります。</p>
+      <p class="text-[11px] text-slate-500">AIが枠を顔に合わせます。ずれていたら、四角い枠を指やマウスで動かし、下のつまみで大きさを変えてください。枠の中だけが顔写真になります。</p>
+      <p id="crop-ai-note" class="hidden text-[13px] font-semibold rounded-xl px-3 py-2"></p>
       <div id="crop-stage" class="relative mx-auto overflow-hidden rounded-xl bg-slate-900 select-none" style="touch-action:none; width:fit-content;">
         <img id="crop-img" alt="" class="block max-w-full" style="max-height:60vh;" draggable="false">
         <div id="crop-box" class="absolute border-2 border-white rounded-lg cursor-move" style="box-shadow:0 0 0 9999px rgba(15,23,42,.55);"></div>
       </div>
       <div class="flex items-center gap-2">
         <i class="fa-solid fa-minus text-slate-400"></i>
-        <input type="range" id="crop-size" min="10" max="100" value="60" class="flex-1" oninput="resizeCropBox(this.value)">
+        <input type="range" id="crop-size" min="5" max="100" value="60" class="flex-1" oninput="resizeCropBox(this.value)">
         <i class="fa-solid fa-plus text-slate-400"></i>
       </div>
       <div class="flex justify-end gap-2">
@@ -1011,7 +1014,7 @@
     }
 
     // ===== 操作記録（誰が・いつ・どの名刺を） =====
-    var LOG_LABELS = { login: 'ログイン', logout: 'ログアウト', login_failed: 'ログイン失敗', change_password: 'パスワード変更', change_password_failed: 'パスワード変更（失敗）', create_ledger: '台帳を作成', ocr_limit_reached: 'AI読み取り上限に到達', ask_professor: '錦織教授に質問', register_by_photo: '撮影して登録', update_card: '編集', change_status: '状態を変更', import_csv: '外部CSVを取り込み' };
+    var LOG_LABELS = { login: 'ログイン', logout: 'ログアウト', login_failed: 'ログイン失敗', change_password: 'パスワード変更', change_password_failed: 'パスワード変更（失敗）', create_ledger: '台帳を作成', ocr_limit_reached: 'AI読み取り上限に到達', ask_professor: '錦織教授に質問', face_fit: 'AIで顔写真の枠を合わせる', register_by_photo: '撮影して登録', update_card: '編集', change_status: '状態を変更', import_csv: '外部CSVを取り込み' };
     function openLogModal() {
       var modal = document.getElementById('log-modal');
       var body = document.getElementById('log-list');
@@ -2367,7 +2370,7 @@
       { id: 'pcAndPhone', cat: 'はじめて', q: 'パソコンとスマホで同じ名刺を使える？', k: 'パソコン スマホ 両方 同じ 同期 別の端末 PC 共通', a: '使えます。同じGoogleアカウントで開けば、パソコンでもスマホでも同じ名刺が表示されます。名刺はあなたのGoogleドライブに保存されているためです。ただし、自分用のメール定型文だけは、使っているブラウザごとの保存です。' },
       { id: 'otherAccount', cat: 'はじめて', q: '別のGoogleアカウントで開いたら名刺がない', k: 'アカウント 別 違う 名刺がない 空っぽ 切り替え 個人 会社', a: '名刺はGoogleアカウントごとに別々に保存されます。別のアカウントで開くと、そのアカウント用の空の台帳になります。いつも同じアカウント（会社のアカウント）で開いてください。' },
       { id: 'openUrl', cat: 'はじめて', q: 'アプリの開き方（URL）が分からなくなった', k: 'URL アドレス 開き方 リンク 忘れた ブックマーク お気に入り', a: '管理者から案内されたURLから開きます。分からなくなったら管理者に聞いてください。開けたら、ブラウザのブックマークや、スマホのホーム画面に置いておくと便利です。' },
-      { id: 'costFree', cat: 'はじめて', q: '使うのにお金はかかる？', k: 'お金 無料 費用 タダ 料金 有料 かかる', a: '費用がかかるのは、名刺の読み取り（GoogleのAI・有料版）と、錦織教授への質問だけです。検索・編集・顔写真・CSV・よくある質問・使い方ガイドは無料です。読み取りは1人月100枚まで、教授への質問は1人月5問までです。' },
+      { id: 'costFree', cat: 'はじめて', q: '使うのにお金はかかる？', k: 'お金 無料 費用 タダ 料金 有料 かかる', a: '費用がかかるのは、名刺の読み取り（GoogleのAI・有料版）、顔写真の枠をAIで顔に合わせるとき、錦織教授への質問だけです。検索・編集・CSV・よくある質問・使い方ガイドは無料です。読み取りは1人月100枚まで、顔合わせは1人月50回まで、教授への質問は1人月5問までです。' },
 
       // --- 登録 ---
       { id: 'camera', cat: '登録', q: '名刺を撮影して登録したい', k: '登録 撮影 撮る カメラ 読み取り 取り込み 追加 新規 スキャン アップ', a: '上部の「📷 撮影・UP」を押し、名刺を撮影（または写真を選択）します。読み取った内容で名刺が登録され、「✅ 名刺の登録が完了しました！」と出ます。「📋 詳細・編集へ移動」で、その名刺の場所へ移動して内容を確かめてください。' },
@@ -2396,8 +2399,8 @@
       { id: 'saveFail', cat: '編集・メモ', q: '保存できない・「保存に失敗」と出る', k: '保存 できない 失敗 エラー 反映されない', a: '通信が不安定なときに起きます。電波の良い場所で、もう一度「修正を保存する」を押してください。氏名が空だと保存できません。チームの名刺で「権限がありません」と出るときは、管理者に共有を依頼してください。' },
 
       // --- 顔写真 ---
-      { id: 'face', cat: '顔写真', q: '顔写真を付けたい', k: '顔写真 顔写真をつけたい 顔写真を付けたい 写真 顔 アバター 丸い 画像 付ける つけたい', a: '編集画面の一番上の「📷 撮る／選ぶ」で写真を取り込むと、枠の画面が開きます。四角い枠を指やマウスで動かし、下のつまみで大きさを変えて「この範囲で登録」を押します。AIは使わないので費用はかかりません。' },
-      { id: 'faceFromCard', cat: '顔写真', q: '名刺に印刷された顔写真を使いたい', k: '名刺の顔写真 切り抜く 印刷 名刺画像から', a: '編集画面の「名刺画像から切り抜く」を押すと、名刺の画像が開くので、枠を顔に合わせて「この範囲で登録」を押します。撮り直す必要はありません（名刺画像がある名刺だけに出ます）。' },
+      { id: 'face', cat: '顔写真', q: '顔写真を付けたい', k: '顔写真 顔写真をつけたい 顔写真を付けたい 写真 顔 アバター 丸い 画像 付ける つけたい', a: '編集画面の一番上の「📷 撮る／選ぶ」で写真を取り込むと、枠の画面が開き、AIが枠を顔に合わせます。ずれていたら、四角い枠を指やマウスで動かし、下のつまみで大きさを変えて「この範囲で登録」を押します。' },
+      { id: 'faceFromCard', cat: '顔写真', q: '名刺に印刷された顔写真を使いたい', k: '名刺の顔写真 切り抜く 印刷 名刺画像から', a: '編集画面の「名刺画像から切り抜く」を押すと、名刺の画像が開き、AIが枠を顔写真の部分に合わせます。ずれていたら枠を動かし、「この範囲で登録」を押します。撮り直す必要はありません（名刺画像がある名刺だけに出ます）。' },
       { id: 'faceRemove', cat: '顔写真', q: '顔写真を外したい・変えたい', k: '顔写真 外す 消す 変える 差し替え', a: '変えるときは「撮る／選ぶ」で登録し直すと差し替わります。外すときは「外す」を押します。前の写真はGoogleドライブのゴミ箱に入ります。' },
 
       // --- 整理・削除 ---
@@ -2430,7 +2433,7 @@
       { id: 'log', cat: 'CSV・シート', q: '誰が何をしたか確認したい', k: '操作記録 ログ 履歴 誰が いつ 変更履歴 監査', a: '「バックアップ / 復元」タブの「操作記録を開く」で、誰が・いつ・どの名刺を登録／編集／移動／削除したかを見られます。チームの名刺の記録は共有シートに残ります。' },
 
       // --- AI・費用 ---
-      { id: 'ai', cat: 'AI・費用', q: 'AIの費用がかかるのはどんなとき？', k: 'AI 費用 料金 お金 有料 無料 コスト', a: '費用がかかるのは、名刺を読み取るときと、🎓 錦織教授に質問するときだけです。顔写真、CSV、編集、検索、よくある質問、使い方ガイドの検索は無料です。どちらもGoogleのAIの有料版を使うので、入力した内容はAIの学習に使われません。' },
+      { id: 'ai', cat: 'AI・費用', q: 'AIの費用がかかるのはどんなとき？', k: 'AI 費用 料金 お金 有料 無料 コスト', a: '費用がかかるのは、名刺を読み取るとき、顔写真の枠をAIで顔に合わせるとき、🎓 錦織教授に質問するときだけです。CSV、編集、検索、よくある質問、使い方ガイドの検索は無料です。どれもGoogleのAIの有料版を使うので、入力した内容や画像はAIの学習に使われません。' },
       { id: 'limit', cat: 'AI・費用', q: '「今月のAI読み取り上限に達しました」と出た', k: '上限 100枚 制限 使えない 止まった 月', a: 'AIでの読み取りは1人月100枚までで、毎月1日（日本時間）に戻ります。それまでも、CSV取込や編集はそのまま使えます。' },
       { id: 'usage', cat: 'AI・費用', q: 'AIをどれくらい使ったか見たい', k: '利用状況 使用量 回数 金額 概算 いくら', a: '「バックアップ / 復元」タブの一番下の「AI利用状況（概算）」を開くと、今月・累計の回数と、おおよその金額、今月の読み取り枚数が見られます。「リセット」は表示を0に戻すだけで、上限は外れません。' },
       { id: 'askProfessor', cat: 'AI・費用', q: '錦織教授に質問するには？', k: '教授 質問 相談 AI 自由 聞く', a: 'このよくある質問と使い方ガイドで解決しないときだけ、この窓の一番下の「錦織教授に質問する」から自由に質問できます。錦織教授は忙しいので、1人月5問までです（有料）。名刺の内容はAIに送りません。' },
@@ -2499,8 +2502,8 @@
 
       // --- 顔写真（追加） ---
       { id: 'faceWhy', cat: '顔写真', q: '顔写真は何のために付けるの？', k: '顔写真 なぜ 目的 思い出す 顔', a: '次に会うとき、どんな人だったかを思い出しやすくするためです。一覧の名刺に小さく表示されます。付けなくても使えます。' },
-      { id: 'faceCropHow', cat: '顔写真', q: '顔写真の枠がうまく動かせない', k: '枠 動かす 切り抜き トリミング 大きさ つまみ 範囲', a: '四角い枠を指やマウスで押したまま動かし、下のつまみで大きさを変えます。顔が枠に収まったら「この範囲で登録」を押してください。' },
-      { id: 'faceCost', cat: '顔写真', q: '顔写真の登録にお金（AI）はかかる？', k: '顔写真 費用 AI お金 無料', a: 'かかりません。顔写真の登録や切り抜きにはAIを使いません。' },
+      { id: 'faceCropHow', cat: '顔写真', q: '顔写真の枠がうまく動かせない', k: '枠 動かす 切り抜き トリミング 大きさ つまみ 範囲', a: '枠はまずAIが顔に合わせます。ずれていたら、四角い枠を指やマウスで押したまま動かし、下のつまみで大きさを変えます。顔が枠に収まったら「この範囲で登録」を押してください。' },
+      { id: 'faceCost', cat: '顔写真', q: '顔写真の登録にお金（AI）はかかる？', k: '顔写真 費用 AI お金 無料', a: '枠の画面を開くと、AIが枠を顔に合わせるので、1回およそ0.1〜0.5円かかります（1人月50回まで）。上限を過ぎても、枠を手で合わせれば登録できます。登録や切り抜きそのものにはAIを使いません。' },
       { id: 'faceTeam', cat: '顔写真', q: 'チームの名刺にも顔写真を付けられる？', k: 'チーム 顔写真 共有 付ける', a: '付けられます。チームの名刺を見られる人なら、編集画面の顔写真から登録できます。' },
       { id: 'faceWhere', cat: '顔写真', q: '顔写真はどこに保存される？', k: '顔写真 保存 場所 どこ フォルダ', a: '自分の名刺の顔写真は、あなたのドライブの「名刺管理システム_DATA」フォルダの中の「02_顔写真」に保存されます。' },
 
@@ -2776,7 +2779,7 @@
       return '<div class="mt-1 text-[10px] text-slate-500 truncate max-w-[300px]" title="' + escapeHtml(c.privateMemo) + '"><i class="fa-solid fa-lock mr-1"></i>' + escapeHtml(first) + '</div>';
     }
 
-    // ===== 顔写真：取り込み → アプリ内でカット → 登録（AIは使わない） =====
+    // ===== 顔写真：取り込み → AIが枠を顔に合わせる → アプリ内でカット → 登録 =====
     var BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     var avatarCardId = null;
 
@@ -2812,7 +2815,7 @@
       });
     }
 
-    var crop = { size: 0, x: 0, y: 0, dragging: false, startX: 0, startY: 0, baseX: 0, baseY: 0 };
+    var crop = { size: 0, x: 0, y: 0, dragging: false, startX: 0, startY: 0, baseX: 0, baseY: 0, token: 0, touched: false };
 
     function openAvatarCropper(dataUrl) {
       var img = document.getElementById('crop-img');
@@ -2826,13 +2829,73 @@
           crop.x = Math.round((w - crop.size) / 2);
           crop.y = Math.round((h - crop.size) / 2);
           drawCropBox();
+          crop.token++;
+          crop.touched = false;
+          autoFitFace(crop.token);
         }, 30);
       };
       img.onerror = function() { showToast('この画像は表示できません。JPEGかPNGでお試しください', 'error'); };
       img.src = dataUrl;
     }
 
+    function setCropNote(text, kind) {
+      var el = document.getElementById('crop-ai-note');
+      if (!el) return;
+      var colors = { busy: 'bg-indigo-50 text-indigo-800', ok: 'bg-emerald-50 text-emerald-800', warn: 'bg-amber-50 text-amber-900' };
+      el.className = 'text-[13px] font-semibold rounded-xl px-3 py-2 ' + (colors[kind] || '');
+      el.textContent = text;
+      el.classList.toggle('hidden', !text);
+    }
+
+    // 枠をAIで顔に合わせる。見つからない・失敗したときは、枠は真ん中のまま（手で合わせる）
+    function autoFitFace(token) {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+      var img = document.getElementById('crop-img');
+      if (!img.naturalWidth) return;
+      var maxSide = 1024;
+      var r = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * r));
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * r));
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      var small = canvas.toDataURL('image/jpeg', 0.8);
+      setCropNote('AIが顔を探しています…（このまま枠を動かしてもかまいません）', 'busy');
+      google.script.run
+        .withSuccessHandler(function(jsonStr) {
+          if (token !== crop.token) return;
+          var res = null;
+          try { res = JSON.parse(jsonStr); } catch (e) { res = null; }
+          if (!res || !res.found) {
+            var why = (res && res.error) ? res.error : '顔が見つかりませんでした。';
+            setCropNote(why + '枠は真ん中のままです。手で合わせてください。', 'warn');
+            return;
+          }
+          if (crop.touched) { setCropNote('枠を動かされたので、AIの結果は使わずにそのままにしました。', 'ok'); return; }
+          var w = img.clientWidth, h = img.clientHeight, b = res.box;
+          var fw = (b[3] - b[1]) / 1000 * w, fh = (b[2] - b[0]) / 1000 * h;
+          var cx = (b[1] + b[3]) / 2000 * w, cy = (b[0] + b[2]) / 2000 * h;
+          crop.size = Math.round(Math.max(fw, fh) * 1.5);
+          crop.x = Math.round(cx - crop.size / 2);
+          crop.y = Math.round(cy - crop.size / 2);
+          drawCropBox();
+          var pct = Math.round(crop.size / Math.min(w, h) * 100);
+          document.getElementById('crop-size').value = Math.max(5, Math.min(100, pct));
+          setCropNote('AIが枠を顔に合わせました。ずれていたら動かしてください。', 'ok');
+        })
+        .withFailureHandler(function() {
+          if (token !== crop.token) return;
+          setCropNote('AIで顔を探せませんでした。枠は真ん中のままです。手で合わせてください。', 'warn');
+        })
+        .apiFindFace(small);
+    }
+
     function closeAvatarCropper() {
+      // 閉じた後に届いたAIの結果は使わない
+      crop.token++;
+      setCropNote('', '');
       document.getElementById('avatar-crop-modal').classList.add('hidden');
       var img = document.getElementById('crop-img');
       img.onload = null;
@@ -2858,6 +2921,7 @@
     }
 
     function resizeCropBox(percent) {
+      crop.touched = true;
       var img = document.getElementById('crop-img');
       var cx = crop.x + crop.size / 2, cy = crop.y + crop.size / 2;
       crop.size = Math.round(Math.min(img.clientWidth, img.clientHeight) * Number(percent) / 100);
@@ -2870,7 +2934,7 @@
       var box = document.getElementById('crop-box');
       if (!box) return;
       box.addEventListener('pointerdown', function(e) {
-        crop.dragging = true; crop.startX = e.clientX; crop.startY = e.clientY; crop.baseX = crop.x; crop.baseY = crop.y;
+        crop.dragging = true; crop.touched = true; crop.startX = e.clientX; crop.startY = e.clientY; crop.baseX = crop.x; crop.baseY = crop.y;
         box.setPointerCapture(e.pointerId);
         e.preventDefault();
       });
